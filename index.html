@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+    <title>YouTune Radio</title>
+
+    <!-- Temporary favicon (will be replaced by your icon later) -->
+      <link rel="icon" href="icon-192.png" type="image/png" />
+
+    <!-- PWA basics -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2c3e50">
+
+    <!-- Google Search Console Verification (Paste your code here if using HTML Tag method) -->
+    <!-- <meta name="google-site-verification" content="YOUR_CODE_HERE" /> -->
+
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-container">
+    <header class="mobile-header">
+        <button class="icon-btn" onclick="toggleSidebar()" aria-label="Open sidebar" aria-controls="sidebar" aria-expanded="false">
+            <span class="material-icons">menu</span>
+        </button>
+        <div class="mobile-logo">
+            <img src="icon-192.png" alt="YouTune Radio" class="mobile-logo-icon"> YouTune Radio
+        </div>
+    </header>
+
+    <!-- Overlay outside sidebar for proper stacking -->
+    <div class="sidebar-overlay" onclick="hideSidebarOnMobile()" tabindex="0" aria-label="Close sidebar"></div>
+
+    <aside class="sidebar" id="sidebar" aria-modal="true" aria-label="Sidebar" tabindex="-1">
+        <div class="logo-area">
+            <img src="icon-192.png" alt="YouTune Radio" class="logo-icon-img">
+            <span>YouTune Radio</span>
+        </div>
+
+        <div class="sidebar-search">
+            <span class="material-icons">search</span>
+            <input type="text" id="search-input" placeholder="Search (e.g. chill, talk)">
+        </div>
+
+        <nav class="nav-menu">
+            <div class="nav-section-title">COUNTRY</div>
+            <button class="nav-item" id="nav-country" onclick="loadCountryStations(true); hideSidebarOnMobile();">
+                <span class="material-icons">public</span> Local Stations
+            </button>
+
+            <div class="nav-section-title">MENU</div>
+            <button class="nav-item active" id="nav-trending" onclick="loadTrending(); hideSidebarOnMobile();">
+                <span class="material-icons">home</span> Home
+            </button>
+            <button class="nav-item" id="nav-favorites" onclick="loadFavorites(); hideSidebarOnMobile();">
+                <span class="material-icons">favorite</span> Favorites
+            </button>
+            <button class="nav-item" id="nav-social" onclick="loadSocial(); hideSidebarOnMobile();">
+                <span class="material-icons">public</span> Social
+            </button>
+            <button class="nav-item" id="nav-chat" onclick="showChatView(); hideSidebarOnMobile();">
+                <span class="material-icons">chat</span> Chat
+            </button>
+            <button class="nav-item" id="nav-settings" onclick="showSettingsView(); hideSidebarOnMobile();">
+                <span class="material-icons">settings</span> Settings
+            </button>
+            <button class="nav-item" id="nav-about" onclick="showAboutView(); hideSidebarOnMobile();">
+                <span class="material-icons">info</span> About
+            </button>
+
+            <div class="nav-section-title" onclick="toggleAccordion('acc-recent', this)">
+                <span>RECENTLY PLAYED</span>
+                <span class="material-icons">keyboard_arrow_down</span>
+            </div>
+            <div id="acc-recent" class="accordion-container">
+                <div class="history-header">
+                    <button class="history-clear-btn" onclick="clearRecentStations()">Clear</button>
+                </div>
+                <div id="recent-stations" class="nav-menu"></div>
+            </div>
+
+            <div class="nav-section-title" onclick="toggleAccordion('acc-history', this)">
+                <span>SEARCH HISTORY</span>
+                <span class="material-icons">keyboard_arrow_down</span>
+            </div>
+            <div id="acc-history" class="accordion-container">
+                <div class="history-header">
+                    <button class="history-clear-btn" onclick="clearSearchHistory()">Clear</button>
+                </div>
+                <div id="search-history" class="history-list"></div>
+            </div>
+
+            <div class="nav-section-title">DATA</div>
+            <button class="nav-item" onclick="exportData()">
+                <span class="material-icons">download</span> Backup Data
+            </button>
+            <button class="nav-item" onclick="document.getElementById('import-file').click()">
+                <span class="material-icons">upload</span> Restore Data
+            </button>
+            <input type="file" id="import-file" style="display:none" accept=".json" onchange="importData(this)">
+        </nav>
+    </aside>
+
+    <main class="main-content" id="main-content">
+        <div class="hero-text" id="hero-text">
+            <h1>Discover live radio from around the world.</h1>
+            <p>Browse stations, track what's playing, and enjoy a clean, focused listening experience.</p>
+            <h2 class="section-heading">
+                <button id="back-home-btn" class="icon-btn circle-icon-btn hidden" onclick="loadTrending()" style="margin-right:10px;" title="Back to Home"><span class="material-icons">arrow_back</span></button>
+                <span id="section-title">Home</span>
+            </h2>
+        </div>
+
+        <!-- LIST VIEW -->
+        <section id="view-list" class="view active-view">
+            <!-- Dashboard Container (New Trending Look) -->
+            <div id="dashboard-container" class="hidden"></div>
+
+            <div id="channel-grid" class="channel-grid"></div>
+
+            <div id="loader" class="loader hidden"></div>
+
+            <div id="empty-state" class="hidden" style="padding:20px; color:#ccc;">No stations found.</div>
+
+            <div id="pagination" class="pagination hidden">
+                <button id="page-prev" class="page-btn" onclick="changePage(-1)">
+                    <span class="material-icons">chevron_left</span> Prev
+                </button>
+                <span id="page-info" class="page-info">Page 1</span>
+                <button id="page-next" class="page-btn" onclick="changePage(1)">
+                    Next <span class="material-icons">chevron_right</span>
+                </button>
+            </div>
+            <button id="scroll-top-btn" class="scroll-top-btn" onclick="scrollToTop()" title="Back to Top">
+                <span class="material-icons">arrow_upward</span>
+            </button>
+        </section>
+
+        <!-- EXTENDED NOW PLAYING VIEW -->
+   <section id="view-nowplaying" class="view">
+    <div class="np-layout">
+        <div class="np-header-row">
+            <h2>Now Playing</h2>
+            
+            <div style="display:flex; gap:15px; align-items:center;">
+                <button class="icon-btn" id="zen-btn" onclick="toggleZenMode()" title="Zen Mode">
+                    <span class="material-icons">fullscreen</span>
+                </button>
+
+                <button class="icon-btn" onclick="openCurrentStationUrl()" title="Open station website">
+                    <span class="material-icons">open_in_new</span>
+                </button>
+                
+                <button class="icon-btn" onclick="showListView()" title="Back to list">
+                    <span class="material-icons">close</span>
+                </button>
+            </div>
+            
+        </div>
+        <div class="np-main-row">
+            <div class="np-art-col">
+                <div class="np-art-wrapper">
+                    <img id="np-art" src="placeholder.png" alt="">
+                    <canvas id="visualizer" width="300" height="300"></canvas>
+                    <div class="art-actions">
+                        <button class="art-action-btn" id="record-btn" onclick="toggleRecording()" title="Record Stream">
+                            <span class="material-icons">fiber_manual_record</span>
+                        </button>
+                        <button class="art-action-btn" id="sleep-timer-btn" onclick="toggleSleepMenu(event)" title="Sleep Timer">
+                            <span class="material-icons">timer_off</span>
+                        </button>
+                        <button class="art-action-btn" onclick="shareStation()" title="Share Station">
+                            <span class="material-icons">share</span>
+                        </button>
+                        <button class="art-action-btn" onclick="toggleArtMenu(event)" title="Find this track">
+                            <span class="material-icons">search</span>
+                        </button>
+                    </div>
+                    <div id="sleep-menu" class="art-menu-dropdown hidden" style="bottom: 110px; max-height: 220px; overflow-y: auto;">
+                        <button onclick="setSleepTimer(0)" class="sleep-option selected" data-min="0">Off</button>
+                        <div class="menu-separator"></div>
+                        <button onclick="setSleepTimer(5)" class="sleep-option" data-min="5">5 mins</button>
+                        <button onclick="setSleepTimer(10)" class="sleep-option" data-min="10">10 mins</button>
+                        <button onclick="setSleepTimer(20)" class="sleep-option" data-min="20">20 mins</button>
+                        <button onclick="setSleepTimer(30)" class="sleep-option" data-min="30">30 mins</button>
+                        <button onclick="setSleepTimer(45)" class="sleep-option" data-min="45">45 mins</button>
+                        <button onclick="setSleepTimer(60)" class="sleep-option" data-min="60">1 hour</button>
+                        <button onclick="setSleepTimer(120)" class="sleep-option" data-min="120">2 hours</button>
+                        <button onclick="setSleepTimer(180)" class="sleep-option" data-min="180">3 hours</button>
+                        <button onclick="setSleepTimer(300)" class="sleep-option" data-min="300">5 hours</button>
+                    </div>
+                    <div id="art-menu" class="art-menu-dropdown hidden">
+                        <button onclick="searchPlatform('spotify')">Spotify</button>
+                        <button onclick="searchPlatform('apple')">Apple Music</button>
+                        <button onclick="searchPlatform('youtube')">YouTube</button>
+                        <button onclick="searchPlatform('soundcloud')">SoundCloud</button>
+                    </div>
+                </div>
+            </div>
+            <div class="np-info-col">
+                <h3 id="np-title">Select a station</h3>
+                <p id="np-artist">Ready to play</p>
+                <div class="np-meta">
+                    <p id="np-country"></p>
+                    <p id="np-bitrate"></p>
+                </div>
+                <div class="np-actions"></div> 
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="view-about" class="view">
+            <div class="about-layout">
+                <div class="about-header">
+                    <img src="icon-512.png" class="about-app-icon" alt="YouTune">
+                    <div>
+                        <h2 style="color: var(--player-bg); font-size: 2rem; margin-bottom: 4px; letter-spacing: -0.5px;">
+                            YouTune Radio
+                        </h2>
+                        <p class="about-version" style="color: var(--text-grey); font-size: 0.9rem; margin-bottom: 0;">
+                            Version 1.0 Stable
+                        </p>
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; padding: 15px; border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; margin-bottom: 30px;">
+                    <p style="margin-bottom: 6px; font-size: 1rem;">
+                        <strong style="color: var(--text-dark);">Developer:</strong> 
+                        <span style="color: var(--accent); font-weight: 700;">Exe Innovate</span>
+                    </p>
+                    <p style="margin: 0; font-size: 0.9rem; color: var(--text-grey);">
+                        <strong>Copyright &copy; <span id="about-year"></span></strong>. All rights reserved.
+                    </p>
+                </div>
+
+                <div style="color: #334155; line-height: 1.8; font-size: 0.95rem;">
+                    <p style="margin-bottom: 20px;">
+                        YouTune Radio started as a personal project. I built it for myself because I genuinely enjoy listening to
+                        radio — especially late at night, when everything is quieter and there’s always a station playing music,
+                        talk shows, or something interesting in the background.
+                    </p>
+
+                    <p style="margin-bottom: 20px;">
+                        The goal was simple: create a clean, distraction-free radio experience that highlights trending stations,
+                        local stations from your country, and makes it easy to search globally by name. No accounts, no clutter —
+                        just press play and enjoy what’s on.
+                    </p>
+
+                    <p style="margin-bottom: 25px;">
+                        Whether you’re discovering new music, listening to late-night conversations, or just letting a station
+                        run while you work or relax, YouTune Radio is designed to stay out of your way and let the radio speak for
+                        itself.
+                    </p>
+                </div>
+
+                <div style="background: #f1f5f9; border-radius: 12px; padding: 20px; margin-bottom: 30px;">
+                    <h3 style="font-size: 1rem; color: var(--text-dark); margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                        Notes & Acknowledgements
+                    </h3>
+
+                    <div style="margin-bottom: 15px;">
+                        <h4 style="font-size: 0.9rem; margin-bottom: 4px; color: var(--player-bg); display: flex; align-items: center; gap: 6px;">
+                            <span class="material-icons" style="font-size: 1rem;">wifi_tethering</span> Stream Reliability
+                        </h4>
+                        <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; margin: 0;">
+                            Radio streams are hosted by the stations themselves. Occasionally, a stream might be offline, full, or geo-blocked. If a station doesn't play, it is likely a temporary issue on their end.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <h4 style="font-size: 0.9rem; margin-bottom: 4px; color: var(--player-bg); display: flex; align-items: center; gap: 6px;">
+                            <span class="material-icons" style="font-size: 1rem;">album</span> Artwork & Info
+                        </h4>
+                        <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; margin: 0;">
+                            Track titles and album art rely on real-time metadata sent by the broadcaster. If the station doesn't send this data, we cannot display it.
+                        </p>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size: 0.9rem; margin-bottom: 4px; color: var(--player-bg); display: flex; align-items: center; gap: 6px;">
+                            <span class="material-icons" style="font-size: 1rem; color: var(--accent);">volunteer_activism</span> Community Powered
+                        </h4>
+                        <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; margin: 0;">
+                            This web app is powered by <a href="https://www.radio-browser.info/" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 700;">radio-browser.info</a>. 
+                            Special thanks to the creator, <strong>Alex Segler</strong>, and the community for maintaining this open database. If you can, please consider <a href="https://ko-fi.com/segleralex" target="_blank" style="color: var(--accent); text-decoration: underline;">supporting his work</a>.
+                        </p>
+                    </div>
+                </div>
+
+                <div style="margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap;">
+                    <a href="mailto:exeinn.info@gmail.com" class="page-btn" style="text-decoration: none; color: var(--text-dark); border-color: #cbd5e1;">
+                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">email</span> 
+                        Contact Me
+                    </a>
+                    
+                    <a href="https://ko-fi.com/exeinn" target="_blank" rel="noopener" class="page-btn" style="text-decoration: none; color: var(--text-dark);">
+                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">coffee</span> 
+                        Buy Me a Coffee
+                    </a>
+
+                    <a href="help/index.html" target="_blank" class="page-btn" style="text-decoration: none; color: var(--text-dark);">
+                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">help_outline</span> 
+                        FAQ
+                    </a>
+
+                    <a href="license/index.html" target="_blank" class="page-btn" style="text-decoration: none; color: var(--text-dark);">
+                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">description</span> 
+                        License
+                    </a>
+
+                    <a href="feedback/index.html" target="_blank" class="page-btn" style="text-decoration: none; color: var(--text-dark);">
+                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">feedback</span> 
+                        Feedback
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- CHAT VIEW -->
+        <section id="view-chat" class="view">
+            <div class="chat-layout">
+                <div class="chat-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button class="icon-btn circle-icon-btn" onclick="goBack()" title="Back"><span class="material-icons">arrow_back</span></button>
+                        <h2>Chat</h2>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button class="icon-btn circle-icon-btn" onclick="loadSocial()" title="Social Feed"><span class="material-icons">public</span></button>
+                        <button class="icon-btn circle-icon-btn" onclick="openChatSettingsModal()" title="Chat Settings"><span class="material-icons">settings</span></button>
+                    </div>
+                </div>
+                <div id="chat-messages" class="chat-messages">
+                    <div class="chat-system-msg">Welcome to the global chat room! Say hello.</div>
+                </div>
+                <div id="reply-preview" class="reply-preview hidden">
+                    <div class="reply-info">
+                        <span id="reply-to-user" class="reply-to-user"></span>
+                        <span id="reply-to-text" class="reply-to-text"></span>
+                    </div>
+                    <button class="icon-btn" onclick="cancelReply()"><span class="material-icons" style="font-size:1.2rem; color:#6b7280;">close</span></button>
+                </div>
+                <form class="chat-input-area" onsubmit="sendChatMessage(event)">
+                    <button type="button" class="icon-btn emoji-toggle-btn" onclick="toggleEmojiPicker()" style="color:#6b7280" title="Add Emoji">
+                        <span class="material-icons">sentiment_satisfied_alt</span>
+                    </button>
+                    <div id="emoji-picker" class="emoji-picker hidden"></div>
+                    <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
+                    <button type="submit" class="icon-btn" style="color:var(--accent)"><span class="material-icons">send</span></button>
+                </form>
+            </div>
+        </section>
+
+        <!-- SOCIAL VIEW (IFRAME) -->
+        <section id="view-social" class="view">
+            <iframe id="social-frame" src="" style="width:100%; height:100%; border:none;"></iframe>
+        </section>
+
+        <!-- SETTINGS VIEW -->
+        <section id="view-settings" class="view">
+            <div class="settings-layout">
+                <div class="settings-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button class="icon-btn circle-icon-btn" onclick="goBack()" title="Back"><span class="material-icons">arrow_back</span></button>
+                        <h2>Settings</h2>
+                    </div>
+                </div>
+                
+                <div class="settings-content">
+                    <!-- API Server -->
+                    <div class="setting-group">
+                        <label class="setting-label">API Server</label>
+                        <p class="setting-desc">If stations are not loading, try switching to a different server.</p>
+                        <select id="server-select" class="settings-select">
+                            <option value="https://de1.api.radio-browser.info">de1.api.radio-browser.info (Germany)</option>
+                            <option value="https://de2.api.radio-browser.info">de2.api.radio-browser.info (Germany)</option>
+                            <option value="https://at1.api.radio-browser.info">at1.api.radio-browser.info (Austria)</option>
+                            <option value="https://nl1.api.radio-browser.info">nl1.api.radio-browser.info (Netherlands)</option>
+                            <option value="https://all.api.radio-browser.info">all.api.radio-browser.info (Auto)</option>
+                        </select>
+                    </div>
+
+                    <!-- Bitrate -->
+                    <div class="setting-group">
+                        <label class="setting-label">Minimum Bitrate</label>
+                        <select id="bitrate-select" class="settings-select">
+                            <option value="0">Any Quality</option>
+                            <option value="64">64 kbps+</option>
+                            <option value="128">128 kbps+ (High Quality)</option>
+                            <option value="192">192 kbps+ (Very High)</option>
+                        </select>
+                    </div>
+
+                    <!-- HTTPS Only -->
+                    <div class="setting-group">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span class="setting-label">HTTPS Only</span>
+                            <label class="switch">
+                                <input type="checkbox" id="https-toggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <p class="setting-desc">HTTP streams may fail due to mixed content in some browsers.</p>
+                    </div>
+
+                    <!-- Autoplay -->
+                    <div class="setting-group row">
+                        <span class="setting-label">Auto-play on Startup</span>
+                        <label class="switch">
+                            <input type="checkbox" id="autoplay-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="settings-actions">
+                        <button onclick="resetSettings()" class="page-btn danger-btn">Reset Defaults</button>
+                        <button onclick="saveSettings()" class="page-btn primary-btn">Save & Reload</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<footer class="player-bar" id="player-bar">
+    <div class="player-left" onclick="showNowPlayingView()">
+        <div class="player-art-wrap">
+            <img src="placeholder.png"
+                 id="player-art" alt="">
+        </div>
+        <div class="track-info">
+            <div id="player-title" class="p-title" title="Select a station">Select a station</div>
+            <div id="player-artist" class="p-artist">Ready to play</div>
+        </div>
+    </div>
+
+    <div class="player-right">
+        <div class="volume-wrap">
+            <button class="icon-btn" id="mute-btn" onclick="toggleMute()" title="Mute (m)">
+                <span class="material-icons">volume_up</span>
+            </button>
+            <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this.value)" title="Volume (Up/Down)">
+        </div>
+
+        <button class="icon-btn play-circle" onclick="togglePlay()" title="Play/Pause">
+            <span class="material-icons" id="play-icon">play_arrow</span>
+        </button>
+
+        <button class="icon-btn" onclick="toggleFavoriteCurrent()" title="Favorite">
+            <span class="material-icons" id="fav-icon">favorite_border</span>
+        </button>
+    </div>
+</footer>
+
+<!-- Station Info Modal -->
+<div id="station-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeStationModal()"></div>
+    <div class="modal-content modal-station">
+        <button class="modal-close" onclick="closeStationModal()">
+            <span class="material-icons">close</span>
+        </button>
+        <div class="modal-header">
+            <img id="modal-art"
+                 src="placeholder.png"
+                 alt=""
+                 onerror="this.onerror=null;this.src='placeholder.png'">
+            <div class="modal-header-text">
+                <h3 id="modal-title"></h3>
+            </div>
+        </div>
+        <div class="modal-body modal-body-grid">
+            <div>
+                <p><strong>Country:</strong> <span id="modal-country"></span></p>
+                <p><strong>Language:</strong> <span id="modal-language"></span></p>
+                <p><strong>Bitrate:</strong> <span id="modal-bitrate"></span> kbps</p>
+            </div>
+            <div>
+                <p class="modal-tags"><strong>Tags:</strong> <span id="modal-tags"></span></p>
+                <p><strong>Homepage:</strong> <a href="#" id="modal-homepage" target="_blank" rel="noopener">Open</a></p>
+                <p><strong>Stream URL:</strong> <a href="#" id="modal-stream" target="_blank" rel="noopener">Open</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Settings Modal -->
+<div id="chat-settings-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeChatSettingsModal()"></div>
+    <div class="modal-content">
+        <button class="modal-close" onclick="closeChatSettingsModal()">
+            <span class="material-icons">close</span>
+        </button>
+        <div class="modal-header">
+            <h3 style="margin:0">Chat Settings</h3>
+        </div>
+        <div class="modal-body">
+            <label class="setting-label" style="font-size:0.9rem; margin-bottom:4px; display:block;">Nickname</label>
+            <input type="text" id="username-input" class="settings-select" placeholder="Enter new nickname" maxlength="20">
+            
+            <div style="margin-top:20px;">
+                <label class="setting-label" style="font-size:0.9rem; margin-bottom:8px; display:block;">Blocked Users</label>
+                <div id="blocked-users-list" style="max-height:120px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:6px; padding:8px;"></div>
+            </div>
+
+            <div class="modal-actions" style="margin-top:20px; display:flex; justify-content:space-between; align-items:center;">
+                <button onclick="clearChatHistory()" class="page-btn danger-btn" style="font-size:0.85rem; padding:6px 12px;">
+                    Clear History
+                </button>
+                <button onclick="saveUsername()" class="page-btn" style="background:var(--accent); color:white; border:none; font-weight:600;">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Options Modal -->
+<div id="chat-options-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeChatOptions()"></div>
+    <div class="modal-content" style="max-width: 300px;">
+        <div class="modal-header" style="border-bottom:none; padding-bottom:0; margin-bottom:15px;">
+            <h3 id="chat-options-title" style="margin:0">User Actions</h3>
+        </div>
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:10px;">
+            <button class="page-btn action-sheet-btn" onclick="chatActionReply()">
+                <span class="material-icons">reply</span> Reply
+            </button>
+            <button class="page-btn action-sheet-btn" onclick="chatActionLike()">
+                <span class="material-icons">favorite</span> Like
+            </button>
+            <button class="page-btn danger-btn action-sheet-btn" onclick="chatActionBlock()">
+                <span class="material-icons">block</span> Block User
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmation-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeConfirmationModal()"></div>
+    <div class="modal-content admin-modal-content">
+        <h3 id="confirm-title" class="modal-title">Confirm</h3>
+        <p id="confirm-text" class="modal-text">Are you sure?</p>
+        <div class="modal-actions center-actions">
+            <button class="modal-btn cancel" onclick="closeConfirmationModal()">Cancel</button>
+            <button id="confirm-btn" class="modal-btn delete" onclick="executeConfirmAction()">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Chat username modal -->
+
+
+<!-- Toast Notification -->
+<div id="toast" class="toast hidden"></div>
+
+<audio id="audio-core" crossorigin="anonymous"></audio>
+
+<script src="script.js"></script>
+</body>
+</html>
