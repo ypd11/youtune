@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download YouTune Radio</title>
+    <link rel="icon" href="icon-192.png" type="image/png" />
+    <meta name="theme-color" content="#2c3e50">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #f97316;
+            --accent-hover: #ea580c;
+            --bg-main: #f8fafc;
+            --text-dark: #1e293b;
+            --text-grey: #64748b;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --header-bg: #2c3e50;
+        }
+
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .download-header {
+            text-align: center;
+            padding: 80px 20px;
+            background: var(--header-bg);
+            color: white;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .logo-icon-img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+        }
+
+        .download-header h1 {
+            font-size: 2.5rem;
+            color: white;
+            margin: 0;
+            letter-spacing: -0.02em;
+            font-weight: 800;
+        }
+
+        .download-header p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.15rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Container */
+        .container {
+            max-width: 800px;
+            margin: -40px auto 60px;
+            padding: 0 20px;
+            text-align: center;
+        }
+
+        /* Download Grid */
+        .download-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        /* Cards */
+        .download-card {
+            background: var(--card-bg);
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            padding: 40px 30px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: inherit;
+        }
+
+        .download-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        .platform-icon {
+            margin-bottom: 20px;
+        }
+
+        .platform-icon svg {
+            width: 48px;
+            height: 48px;
+            fill: var(--accent);
+        }
+
+        .download-card h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+        }
+
+        .download-card p {
+            color: var(--text-grey);
+            font-size: 0.95rem;
+            margin-bottom: 24px;
+        }
+
+        /* Button */
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: var(--accent);
+            color: white;
+            padding: 16px 0;
+            width: 100%;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: all 0.2s;
+            text-decoration: none;
+            box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.3);
+            cursor: pointer;
+        }
+
+        .download-btn:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 10px 15px -3px rgba(249, 115, 22, 0.4);
+            transform: scale(1.02);
+        }
+
+        /* Footer */
+        .footer-note {
+            margin-top: 80px;
+            padding-top: 40px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-grey);
+            font-size: 0.9rem;
+        }
+
+        /* --- Mobile Optimizations --- */
+        @media (max-width: 640px) {
+            .download-header {
+                padding: 40px 15px 60px;
+            }
+
+            .download-header h1 {
+                font-size: 1.75rem;
+            }
+
+            .download-header p {
+                font-size: 0.95rem;
+            }
+
+            .container {
+                margin-top: -25px;
+                padding: 0 12px;
+            }
+
+            .download-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .download-card {
+                padding: 20px 16px; /* Significantly reduced card size */
+                border-radius: 16px;
+            }
+
+            .platform-icon {
+                margin-bottom: 12px;
+            }
+
+            .platform-icon svg {
+                width: 32px; /* Smaller icons */
+                height: 32px;
+            }
+
+            .download-card h2 {
+                font-size: 1.2rem;
+                margin-bottom: 4px;
+            }
+
+            .download-card p {
+                font-size: 0.85rem;
+                margin-bottom: 16px;
+            }
+
+            .download-btn {
+                padding: 12px 0;
+                font-size: 0.9rem;
+            }
+
+            .footer-note {
+                margin-top: 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header class="download-header">
+    <div class="logo-area">
+        <img src="icon-512.png" alt="YouTune" class="logo-icon-img">
+        <h1>YouTune Radio Apps</h1>
+    </div>
+    <p>Get the dedicated app for your device and start listening to your favorite stations.</p>
+</header>
+
+<div class="container">
+    <div class="download-grid">
+        <!-- Windows Card -->
+        <div class="download-card">
+            <div class="platform-icon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M0 0h11.387v11.387H0V0zm12.613 0H24v11.387H12.613V0zM0 12.613h11.387V24H0V12.613zm12.613 0H24V24H12.613V12.613z"/>
+                </svg>
+            </div>
+            <h2>Windows</h2>
+            <p>Desktop Application (.exe)</p>
+            <a href="https://github.com/ypd11/youtune/releases/latest/download/youtuneradio-installer.exe" class="download-btn" download>
+                <span class="material-icons">download</span>
+                <span>Download Now</span>
+            </a>
+        </div>
+
+        <!-- Android Card -->
+        <div class="download-card">
+            <div class="platform-icon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9997.9993-.9997c.5511 0 .9993.4486.9993.9997s-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9997.9993-.9997c.5511 0 .9993.4486.9993.9997s-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.41 13.8645 8.0053 12 8.0053c-1.8645 0-3.5902.4047-5.1367.9443l-2.0223-3.503a.416.416 0 00-.5676-.1521.416.416 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1859.4129 14.3939.0506 18.261h23.8988c-.3623-3.8671-2.6383-7.0751-6.0639-9.3249"/>
+                </svg>
+            </div>
+            <h2>Android</h2>
+            <p>Mobile Application (.apk)</p>
+            <a href="https://github.com/ypd11/youtune/releases/latest/download/youtuneradio.apk" class="download-btn" download>
+                <span class="material-icons">android</span>
+                <span>Download Now</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        <p>YouTune Radio &copy; 2026, by Exe Innovate</p>
+    </div>
+</div>
+
+</body>
+</html>

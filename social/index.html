@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Social Feed</title>
+    <script>
+        if (localStorage.getItem('yt_theme') === 'dark') {
+            document.documentElement.classList.add('dark-mode');
+        }
+    </script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -15,9 +20,9 @@
     <div class="social-page-header">
         <div>
             <h1>Social</h1>
-            <p>Connect with listeners worldwide 🌍</p>
+            <p>Share what you are listening to with listeners worldwide.</p>
         </div>
-        <button class="header-btn" onclick="goToChat()" title="Go to Global Chat">
+        <button class="icon-btn circle-icon-btn" onclick="goToChat()" title="Go to Global Chat">
             <span class="material-icons">chat</span>
         </button>
     </div>
@@ -25,7 +30,11 @@
     <!-- Create Post -->
     <div class="create-post-card">
         <div class="cp-header">
-            <span class="material-icons">edit</span> Create Post
+            <span class="material-icons">edit</span>
+            <div>
+                <strong>Create Post</strong>
+                <small>Post as your current nickname</small>
+            </div>
         </div>
         <textarea id="post-input" placeholder="What's on your mind?"></textarea>
         <div class="cp-actions">
@@ -70,3 +79,4 @@
 <script src="script.js"></script>
 </body>
 </html>
+

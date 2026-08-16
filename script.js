@@ -21,6 +21,7 @@ let minBitrate = parseInt(localStorage.getItem('yt_min_bitrate')) || 0;
 let autoPlay = localStorage.getItem('yt_auto_play') === 'true';
 let currentVolume = parseFloat(localStorage.getItem('yt_volume')) || 1;
 let isMuted = false;
+let darkMode = localStorage.getItem('yt_theme') === 'dark';
 
 let currentStation = null;
 let isPlaying = false;
@@ -67,6 +68,7 @@ let recordedChunks = [];
 
 // --- INIT ---
 window.onload = () => {
+    initTheme();
     initContentProtection();
     initOnlineCount();
     initHttpsToggle();
@@ -75,16 +77,20 @@ window.onload = () => {
     renderSearchHistory();
     renderRecentStations();
     initVolume();
+    initWelcomeModal();
     favorites = favorites.filter(s => s && s.url_resolved);
 
     // Ensure ID is saved
     if (!localStorage.getItem('yt_user_id')) localStorage.setItem('yt_user_id', myUserId);
 
     requestCountryAtStartup();
+
+    const hasSharedStation = getSharedStationId() !== null;
     loadTrending();
+    if (hasSharedStation) loadSharedStationFromUrl();
 
     // Auto-play logic
-    if (autoPlay && recentStations.length > 0) {
+    if (!hasSharedStation && autoPlay && recentStations.length > 0) {
         playStation(recentStations[0]);
     }
 
@@ -119,8 +125,8 @@ window.onload = () => {
     });
 
     audio.onerror = () => {
-        document.getElementById('player-artist').innerText = "Stream offline or blocked";
-        document.getElementById('np-artist').innerText = "Stream offline or blocked";
+        setMarqueeText('player-artist', "Stream offline or blocked", 18);
+        setMarqueeText('np-artist', "Stream offline or blocked", 24);
         isPlaying = false;
         updatePlayIcons();
         // Stop metadata polling
@@ -166,7 +172,7 @@ window.onload = () => {
                 if (!document.getElementById('station-modal').classList.contains('hidden')) closeStationModal();
                 else if (!document.getElementById('chat-settings-modal').classList.contains('hidden')) closeChatSettingsModal();
                 else if (document.body.classList.contains('zen-mode')) toggleZenMode();
-                else if (!document.getElementById('view-list').classList.contains('active-view')) showListView();
+                else if (!document.getElementById('view-list').classList.contains('active-view')) goBack();
                 break;
             case 'ArrowUp':
                 e.preventDefault();
@@ -189,13 +195,133 @@ window.onload = () => {
             scrollBtn.classList.remove('visible');
         }
     });
+
+    window.addEventListener('resize', debounce(() => {
+        refreshVisibleMarquees();
+        updateNowPlayingBackground(currentStation ? (nowPlayingTitle ? document.getElementById('np-art').src : currentStation.favicon) : PLACEHOLDER_IMG_LARGE);
+    }, 120));
 };
+
+function debounce(callback, delay) {
+    let timeout;
+    return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => callback(...args), delay);
+    };
+}
+
+// --- THEME ---
+function initTheme() {
+    applyTheme(darkMode, false);
+}
+
+function applyTheme(isDark, persist = true) {
+    darkMode = isDark;
+    document.documentElement.classList.toggle('dark-mode', isDark);
+
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) themeMeta.setAttribute('content', isDark ? '#111827' : '#2c3e50');
+
+    if (persist) {
+        localStorage.setItem('yt_theme', isDark ? 'dark' : 'light');
+    }
+
+    const toggle = document.getElementById('theme-toggle');
+    if (toggle) toggle.checked = isDark;
+
+    const frame = document.getElementById('social-frame');
+    if (frame && frame.contentWindow) {
+        frame.contentWindow.postMessage({ type: 'yt-theme', darkMode: isDark }, '*');
+    }
+}
+
+function toggleDarkMode(isDark) {
+    applyTheme(isDark);
+}
 
 // --- PWA SW REGISTER ---
 function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(() => {});
     }
+}
+
+// --- SHARED STATION LINKS ---
+function getSharedStationId() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('station');
+    return id ? id.trim() : null;
+}
+
+function getStationShareUrl(station) {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('station', station.stationuuid);
+    return url.toString();
+}
+
+function updateStationUrl(station) {
+    if (!station || !station.stationuuid) return;
+    const stationUrl = getStationShareUrl(station);
+    window.history.replaceState({ station: station.stationuuid }, '', stationUrl);
+}
+
+function setImageWithFallback(target, src, fallback = PLACEHOLDER_IMG) {
+    const img = typeof target === 'string' ? document.getElementById(target) : target;
+    if (!img) return;
+
+    const safeFallback = fallback || PLACEHOLDER_IMG;
+    img.onerror = () => {
+        img.onerror = null;
+        img.src = safeFallback;
+    };
+    img.src = src || safeFallback;
+}
+
+function updateNowPlayingBackground(src) {
+    const bg = document.querySelector('.np-bg');
+    if (!bg) return;
+    const image = src || PLACEHOLDER_IMG_LARGE;
+    bg.style.backgroundImage = `url("${image.replace(/"/g, '\\"')}")`;
+}
+
+async function loadSharedStationFromUrl() {
+    const stationId = getSharedStationId();
+    if (!stationId) return;
+
+    try {
+        const url = `${API_BASE}/byuuid/${encodeURIComponent(stationId)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const station = Array.isArray(data) ? data.find(s => s.stationuuid === stationId) || data[0] : null;
+
+        if (!station || !station.url_resolved) {
+            throw new Error('Station not found');
+        }
+
+        playStation(station);
+    } catch (error) {
+        console.error(error);
+        showToast("Shared station unavailable");
+    }
+}
+
+async function copyTextToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    textarea.remove();
 }
 
 // --- HTTPS TOGGLE ---
@@ -223,6 +349,31 @@ function initAboutYear() {
     if (yearSpan) {
         yearSpan.innerText = new Date().getFullYear();
     }
+}
+
+function initWelcomeModal() {
+    if (localStorage.getItem('yt_welcome_v2_seen') === 'true') return;
+    setTimeout(() => showWelcomeView(true), 500);
+}
+
+function showWelcomeView(isAutomatic = false) {
+    const view = document.getElementById('view-welcome');
+    if (!view) return;
+    if (!isAutomatic) recordLastView();
+    view.dataset.automatic = isAutomatic ? 'true' : 'false';
+    document.getElementById('welcome-back-btn')?.classList.toggle('hidden', isAutomatic);
+    setActiveNav(null);
+    setActiveView('view-welcome');
+    scrollToTop();
+}
+
+function closeWelcomeView() {
+    const view = document.getElementById('view-welcome');
+    if (!view) return;
+    localStorage.setItem('yt_welcome_v2_seen', 'true');
+    view.dataset.automatic = 'false';
+    showListView();
+    restoreListChrome();
 }
 
 // --- NAV ACTIVE STATE ---
@@ -297,11 +448,14 @@ function renderRecentStations() {
 
     recentStations.forEach(station => {
         const btn = document.createElement('button');
+        const name = station.name || 'Unknown station';
+        const marqueeClass = 'nav-marquee marquee-text';
         btn.className = 'nav-item';
-        btn.innerHTML = `<span class="material-icons" style="font-size:1rem; opacity:0.7; flex-shrink: 0;">history</span> <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">${escapeHtml(station.name)}</span>`;
-        btn.title = station.name;
+        btn.innerHTML = `<span class="material-icons" style="font-size:1rem; opacity:0.7; flex-shrink: 0;">history</span> <span class="${marqueeClass}" title="${escapeHtml(name)}"><span>${escapeHtml(name)}</span></span>`;
+        btn.title = name;
         btn.onclick = () => playStation(station);
         container.appendChild(btn);
+        updateMarqueeState(btn.querySelector('.nav-marquee'));
     });
 }
 
@@ -351,6 +505,12 @@ function updatePaginationUI(hasContent) {
     nextBtn.disabled = !hasNextPage;
 }
 
+function setTopBackVisible(isVisible) {
+    const btn = document.getElementById('back-home-btn');
+    if (!btn) return;
+    btn.classList.toggle('hidden', !isVisible);
+}
+
 function changePage(direction) {
     if (direction === -1 && currentPage <= 1) return;
     if (direction === 1 && !hasNextPage) return;
@@ -397,6 +557,9 @@ async function detectCountryFromCoords(lat, lon) {
         if (data && data.address && data.address.country_code) {
             countryCode = data.address.country_code.toUpperCase();
             console.log('Detected country code:', countryCode);
+            if (homeCache && currentMode === 'trending') {
+                renderDashboard(homeCache);
+            }
         }
     } catch (e) {
         console.error('Error detecting country:', e);
@@ -416,7 +579,8 @@ async function loadTrending(stayInView = false) {
         showListView();
     }
     document.getElementById('section-title').innerText = "Home";
-    document.getElementById('back-home-btn').classList.add('hidden');
+    setTopBackVisible(false);
+    updateHeroIntroVisibility(true);
     
     // Switch to Dashboard Mode
     document.getElementById('channel-grid').innerHTML = '';
@@ -431,7 +595,7 @@ async function loadTrending(stayInView = false) {
         renderDashboard(homeCache);
         return;
     }
-    dash.innerHTML = '<div class="loader"></div>';
+    renderDashboardSkeleton(dash);
 
     try {
         // 1. Fetch Top Voted
@@ -449,7 +613,18 @@ async function loadTrending(stayInView = false) {
 
     } catch (e) {
         console.error(e);
-        dash.innerHTML = '<div style="padding:20px; color:#ccc;">Error loading dashboard.</div>';
+        dash.innerHTML = `
+            <div class="dash-error-state">
+                <span class="material-icons">wifi_off</span>
+                <h3>Dashboard could not load</h3>
+                <p>Check your connection and try again.</p>
+                <button class="dash-retry" type="button">Retry</button>
+            </div>
+        `;
+        dash.querySelector('.dash-retry').onclick = () => {
+            homeCache = null;
+            loadTrending(true);
+        };
     }
 }
 
@@ -457,41 +632,253 @@ function renderDashboard(data) {
     const dash = document.getElementById('dashboard-container');
     dash.innerHTML = '';
 
+    createNowPlayingPanel(dash);
+    createRecentSection(dash);
+
+    if (countryCode) {
+        createLocalStationsSection(dash);
+    }
+
+    // Section: Featured
+    createDashboardSection(dash, 'Featured Stations', 'star', data.clicked.slice(0, 6), false, {
+        subtitle: 'A quick set of popular live streams to start with.',
+        actionText: 'Refresh',
+        action: () => {
+            homeCache = null;
+            loadTrending(true);
+        }
+    });
+
     // Section: Top Voted
-    createDashboardSection(dash, 'Top Voted Stations', 'thumb_up', data.voted, true);
+    createDashboardSection(dash, 'Top Voted Stations', 'thumb_up', data.voted, true, {
+        subtitle: 'Community favorites from the Radio Browser network.'
+    });
 
     // Section: Genres
-    const genres = [
-        'Pop', 'Rock', 'Jazz', 'Classical', 'Electronic', 'News', 'Talk', 'Hip Hop', 'Chill', 'Ambient', 'Lounge',
-        'Country', 'Blues', 'Folk', 'Latin', 'Metal', 'Reggae', 'Soul', 'Indie', 'Disco', 'House', 'Techno',
-        '80s', '90s', 'Oldies', 'R&B', 'Dance', 'Alternative', 'Instrumental', 'Rap', 'Funk', 'Ska', 'Punk'
-    ];
-    createChipSection(dash, 'Browse by Genre', 'category', genres, (g) => searchStationsByTag(g), true);
+   const genres = [
+    'Pop', 'Rock', 'Jazz', 'Classical', 'Electronic', 'News', 'Talk', 'Hip Hop', 'Chill', 'Ambient', 'Lounge',
+    'Country', 'Blues', 'Folk', 'Latin', 'Metal', 'Reggae', 'Soul', 'Indie', 'Disco', 'House', 'Techno',
+    '80s', '90s', 'Oldies', 'R&B', 'Dance', 'Alternative', 'Instrumental', 'Rap', 'Funk', 'Ska', 'Punk',
+
+    // Más géneros
+    'Trance', 'Deep House', 'Progressive House', 'Electro', 'Dubstep', 'Drum and Bass', 'Hardstyle', 'Garage',
+    'Grime', 'Trap', 'Lo-fi', 'Synthwave', 'Vaporwave', 'Downtempo', 'Trip Hop', 'Breakbeat', 'EDM',
+
+    // Rock / Metal subgéneros
+    'Hard Rock', 'Classic Rock', 'Progressive Rock', 'Psychedelic Rock', 'Garage Rock', 'Grunge',
+    'Heavy Metal', 'Black Metal', 'Death Metal', 'Thrash Metal', 'Metalcore',
+
+    // Urban / Hip Hop
+    'Drill', 'Old School Hip Hop',
+
+    // Latin
+    'Reggaeton', 'Salsa', 'Bachata', 'Merengue', 'Cumbia', 'Regional Mexican', 'Mariachi', 'Banda', 'Norteño',
+
+    // Jazz / Blues
+    'Smooth Jazz', 'Vocal Jazz', 'Swing', 'Bebop', 'Fusion', 'Delta Blues', 'Chicago Blues',
+
+    // Electrónica chill
+    'Chillout', 'Ambient House', 'New Age',
+
+    // Mundo
+    'World', 'Afrobeat', 'K-Pop', 'J-Pop', 'Bollywood',
+
+    // Otros comunes en radio
+    'Gospel', 'Christian', 'Spoken Word', 'Comedy', 'Sports', 'Soundtrack', 'Anime', 'Gaming',
+    'Kids', 'Education', 'Podcast'
+];
+    createGenreExplorer(dash, genres);
 
     // Section: Countries
-    const countries = [
-        {code:'US', name:'USA'}, {code:'DE', name:'Germany'}, {code:'FR', name:'France'}, 
-        {code:'GB', name:'UK'}, {code:'ES', name:'Spain'}, {code:'IT', name:'Italy'},
-        {code:'CA', name:'Canada'}, {code:'BR', name:'Brazil'}, {code:'JP', name:'Japan'},
-        {code:'RU', name:'Russia'}, {code:'MX', name:'Mexico'}, {code:'AR', name:'Argentina'},
-        {code:'AU', name:'Australia'}, {code:'IN', name:'India'}, {code:'CN', name:'China'},
-        {code:'NL', name:'Netherlands'}, {code:'PL', name:'Poland'}, {code:'GR', name:'Greece'},
-        {code:'TR', name:'Turkey'}, {code:'SE', name:'Sweden'}, {code:'NO', name:'Norway'},
-        {code:'FI', name:'Finland'}, {code:'DK', name:'Denmark'}, {code:'BE', name:'Belgium'},
-        {code:'CH', name:'Switzerland'}, {code:'AT', name:'Austria'}, {code:'PT', name:'Portugal'},
-        {code:'CZ', name:'Czechia'}, {code:'KR', name:'South Korea'}, {code:'ID', name:'Indonesia'},
-        {code:'ZA', name:'South Africa'}, {code:'NG', name:'Nigeria'}, {code:'EG', name:'Egypt'}
-    ];
-    createChipSection(dash, 'Browse by Country', 'public', countries, (c) => loadStationsByCountryCode(c.code, c.name), true);
+const countries = [
+    {code:'AF', name:'Afghanistan'}, {code:'AL', name:'Albania'}, {code:'DZ', name:'Algeria'},
+    {code:'AD', name:'Andorra'}, {code:'AO', name:'Angola'}, {code:'AG', name:'Antigua and Barbuda'},
+    {code:'AR', name:'Argentina'}, {code:'AM', name:'Armenia'}, {code:'AU', name:'Australia'},
+    {code:'AT', name:'Austria'}, {code:'AZ', name:'Azerbaijan'}, {code:'BS', name:'Bahamas'},
+    {code:'BH', name:'Bahrain'}, {code:'BD', name:'Bangladesh'}, {code:'BB', name:'Barbados'},
+    {code:'BY', name:'Belarus'}, {code:'BE', name:'Belgium'}, {code:'BZ', name:'Belize'},
+    {code:'BJ', name:'Benin'}, {code:'BT', name:'Bhutan'}, {code:'BO', name:'Bolivia'},
+    {code:'BA', name:'Bosnia and Herzegovina'}, {code:'BW', name:'Botswana'}, {code:'BR', name:'Brazil'},
+    {code:'BN', name:'Brunei'}, {code:'BG', name:'Bulgaria'}, {code:'BF', name:'Burkina Faso'},
+    {code:'BI', name:'Burundi'}, {code:'KH', name:'Cambodia'}, {code:'CM', name:'Cameroon'},
+    {code:'CA', name:'Canada'}, {code:'CV', name:'Cape Verde'}, {code:'CF', name:'Central African Republic'},
+    {code:'TD', name:'Chad'}, {code:'CL', name:'Chile'}, {code:'CN', name:'China'},
+    {code:'CO', name:'Colombia'}, {code:'KM', name:'Comoros'}, {code:'CG', name:'Congo'},
+    {code:'CR', name:'Costa Rica'}, {code:'HR', name:'Croatia'}, {code:'CU', name:'Cuba'},
+    {code:'CY', name:'Cyprus'}, {code:'CZ', name:'Czechia'}, {code:'DK', name:'Denmark'},
+    {code:'DJ', name:'Djibouti'}, {code:'DM', name:'Dominica'}, {code:'DO', name:'Dominican Republic'},
+    {code:'EC', name:'Ecuador'}, {code:'EG', name:'Egypt'}, {code:'SV', name:'El Salvador'},
+    {code:'GQ', name:'Equatorial Guinea'}, {code:'ER', name:'Eritrea'}, {code:'EE', name:'Estonia'},
+    {code:'ET', name:'Ethiopia'}, {code:'FJ', name:'Fiji'}, {code:'FI', name:'Finland'},
+    {code:'FR', name:'France'}, {code:'GA', name:'Gabon'}, {code:'GM', name:'Gambia'},
+    {code:'GE', name:'Georgia'}, {code:'DE', name:'Germany'}, {code:'GH', name:'Ghana'},
+    {code:'GR', name:'Greece'}, {code:'GD', name:'Grenada'}, {code:'GT', name:'Guatemala'},
+    {code:'GN', name:'Guinea'}, {code:'GW', name:'Guinea-Bissau'}, {code:'GY', name:'Guyana'},
+    {code:'HT', name:'Haiti'}, {code:'HN', name:'Honduras'}, {code:'HU', name:'Hungary'},
+    {code:'IS', name:'Iceland'}, {code:'IN', name:'India'}, {code:'ID', name:'Indonesia'},
+    {code:'IR', name:'Iran'}, {code:'IQ', name:'Iraq'}, {code:'IE', name:'Ireland'},
+    {code:'IL', name:'Israel'}, {code:'IT', name:'Italy'}, {code:'JM', name:'Jamaica'},
+    {code:'JP', name:'Japan'}, {code:'JO', name:'Jordan'}, {code:'KZ', name:'Kazakhstan'},
+    {code:'KE', name:'Kenya'}, {code:'KI', name:'Kiribati'}, {code:'KP', name:'North Korea'},
+    {code:'KR', name:'South Korea'}, {code:'KW', name:'Kuwait'}, {code:'KG', name:'Kyrgyzstan'},
+    {code:'LA', name:'Laos'}, {code:'LV', name:'Latvia'}, {code:'LB', name:'Lebanon'},
+    {code:'LS', name:'Lesotho'}, {code:'LR', name:'Liberia'}, {code:'LY', name:'Libya'},
+    {code:'LI', name:'Liechtenstein'}, {code:'LT', name:'Lithuania'}, {code:'LU', name:'Luxembourg'},
+    {code:'MG', name:'Madagascar'}, {code:'MW', name:'Malawi'}, {code:'MY', name:'Malaysia'},
+    {code:'MV', name:'Maldives'}, {code:'ML', name:'Mali'}, {code:'MT', name:'Malta'},
+    {code:'MH', name:'Marshall Islands'}, {code:'MR', name:'Mauritania'}, {code:'MU', name:'Mauritius'},
+    {code:'MX', name:'Mexico'}, {code:'FM', name:'Micronesia'}, {code:'MD', name:'Moldova'},
+    {code:'MC', name:'Monaco'}, {code:'MN', name:'Mongolia'}, {code:'ME', name:'Montenegro'},
+    {code:'MA', name:'Morocco'}, {code:'MZ', name:'Mozambique'}, {code:'MM', name:'Myanmar'},
+    {code:'NA', name:'Namibia'}, {code:'NR', name:'Nauru'}, {code:'NP', name:'Nepal'},
+    {code:'NL', name:'Netherlands'}, {code:'NZ', name:'New Zealand'}, {code:'NI', name:'Nicaragua'},
+    {code:'NE', name:'Niger'}, {code:'NG', name:'Nigeria'}, {code:'MK', name:'North Macedonia'},
+    {code:'NO', name:'Norway'}, {code:'OM', name:'Oman'}, {code:'PK', name:'Pakistan'},
+    {code:'PW', name:'Palau'}, {code:'PA', name:'Panama'}, {code:'PG', name:'Papua New Guinea'},
+    {code:'PY', name:'Paraguay'}, {code:'PE', name:'Peru'}, {code:'PH', name:'Philippines'},
+    {code:'PL', name:'Poland'}, {code:'PT', name:'Portugal'}, {code:'QA', name:'Qatar'},
+    {code:'RO', name:'Romania'}, {code:'RU', name:'Russia'}, {code:'RW', name:'Rwanda'},
+    {code:'KN', name:'Saint Kitts and Nevis'}, {code:'LC', name:'Saint Lucia'},
+    {code:'VC', name:'Saint Vincent and the Grenadines'}, {code:'WS', name:'Samoa'},
+    {code:'SM', name:'San Marino'}, {code:'ST', name:'Sao Tome and Principe'},
+    {code:'SA', name:'Saudi Arabia'}, {code:'SN', name:'Senegal'}, {code:'RS', name:'Serbia'},
+    {code:'SC', name:'Seychelles'}, {code:'SL', name:'Sierra Leone'}, {code:'SG', name:'Singapore'},
+    {code:'SK', name:'Slovakia'}, {code:'SI', name:'Slovenia'}, {code:'SB', name:'Solomon Islands'},
+    {code:'SO', name:'Somalia'}, {code:'ZA', name:'South Africa'}, {code:'ES', name:'Spain'},
+    {code:'LK', name:'Sri Lanka'}, {code:'SD', name:'Sudan'}, {code:'SR', name:'Suriname'},
+    {code:'SZ', name:'Eswatini'}, {code:'SE', name:'Sweden'}, {code:'CH', name:'Switzerland'},
+    {code:'SY', name:'Syria'}, {code:'TW', name:'Taiwan'}, {code:'TJ', name:'Tajikistan'},
+    {code:'TZ', name:'Tanzania'}, {code:'TH', name:'Thailand'}, {code:'TL', name:'Timor-Leste'},
+    {code:'TG', name:'Togo'}, {code:'TO', name:'Tonga'}, {code:'TT', name:'Trinidad and Tobago'},
+    {code:'TN', name:'Tunisia'}, {code:'TR', name:'Turkey'}, {code:'TM', name:'Turkmenistan'},
+    {code:'TV', name:'Tuvalu'}, {code:'UG', name:'Uganda'}, {code:'UA', name:'Ukraine'},
+    {code:'AE', name:'United Arab Emirates'}, {code:'GB', name:'United Kingdom'},
+    {code:'US', name:'United States'}, {code:'UY', name:'Uruguay'}, {code:'UZ', name:'Uzbekistan'},
+    {code:'VU', name:'Vanuatu'}, {code:'VA', name:'Vatican City'}, {code:'VE', name:'Venezuela'},
+    {code:'VN', name:'Vietnam'}, {code:'YE', name:'Yemen'}, {code:'ZM', name:'Zambia'},
+    {code:'ZW', name:'Zimbabwe'}
+];
+    createCountryExplorer(dash, countries);
 
     // Section: Trending
-    createDashboardSection(dash, 'Most Popular', 'trending_up', data.clicked);
+    createDashboardSection(dash, 'Most Popular', 'trending_up', data.clicked, false, {
+        subtitle: 'Stations with the most recent listener activity.'
+    });
 }
 
-function createDashboardSection(container, title, icon, stations, isHorizontal = false) {
+function renderDashboardSkeleton(container) {
+    container.innerHTML = `
+        <div class="dash-skeleton-hero">
+            <div class="skeleton-line wide"></div>
+            <div class="skeleton-line"></div>
+        </div>
+        <div class="skeleton-grid">
+            ${Array.from({ length: 8 }).map(() => `
+                <div class="skeleton-card">
+                    <div class="skeleton-art"></div>
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function createSectionHeader(title, icon, options = {}) {
+    const header = document.createElement('div');
+    header.className = 'dash-header';
+    header.innerHTML = `
+        <div class="dash-header-main">
+            <span class="material-icons">${icon}</span>
+            <div>
+                <h3>${escapeHtml(title)}</h3>
+                ${options.subtitle ? `<p>${escapeHtml(options.subtitle)}</p>` : ''}
+            </div>
+        </div>
+        ${options.actionText ? `<button class="dash-header-action" type="button">${escapeHtml(options.actionText)}</button>` : ''}
+    `;
+    if (options.actionText && typeof options.action === 'function') {
+        header.querySelector('.dash-header-action').onclick = options.action;
+    }
+    return header;
+}
+
+function createNowPlayingPanel(container) {
+    const section = document.createElement('div');
+    section.className = 'dash-nowplaying-panel';
+    section.innerHTML = `
+        <div class="dash-nowplaying-left">
+            <img id="dash-now-art" src="${PLACEHOLDER_IMG}" alt="" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
+            <div>
+                <div class="dash-now-kicker">Now Playing</div>
+                <h3 id="dash-now-title"></h3>
+                <p id="dash-now-subtitle"></p>
+            </div>
+        </div>
+        ${currentStation ? `
+            <button class="dash-now-action" type="button" onclick="showNowPlayingView()">
+                <span class="material-icons">equalizer</span>
+                Open Player
+            </button>
+        ` : ''}
+    `;
+    container.appendChild(section);
+    setImageWithFallback('dash-now-art', currentStation ? currentStation.favicon : null);
+    updateDashboardNowPlaying();
+}
+
+function updateDashboardNowPlaying() {
+    const title = document.getElementById('dash-now-title');
+    if (!title) return;
+    const art = document.getElementById('dash-now-art');
+    const subtitle = document.getElementById('dash-now-subtitle');
+    if (art) setImageWithFallback(art, currentStation ? currentStation.favicon : null);
+    setMarqueeText(title, currentStation ? (currentStation.name || 'Unknown station') : 'Ready to tune in', 18);
+    if (subtitle) setMarqueeText(subtitle, currentStation ? (nowPlayingTitle || 'Live stream') : 'Pick a station and it will appear here.', 22);
+}
+
+function createRecentSection(container) {
+    if (!recentStations.length) return;
+    createDashboardSection(container, 'Continue Listening', 'history', recentStations, true, {
+        subtitle: 'Jump back into your recently played stations.'
+    });
+}
+
+async function createLocalStationsSection(container) {
     const section = document.createElement('div');
     section.className = 'dash-section';
-    section.innerHTML = `<div class="dash-header"><span class="material-icons">${icon}</span> ${title}</div>`;
+    section.appendChild(createSectionHeader('Stations Near You', 'my_location', {
+        subtitle: `Live stations detected for ${countryCode}.`,
+        actionText: 'View All',
+        action: () => loadCountryStations(true)
+    }));
+    const grid = document.createElement('div');
+    grid.className = 'horizontal-grid';
+    grid.innerHTML = Array.from({ length: 6 }).map(() => '<div class="skeleton-card compact"><div class="skeleton-art"></div><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>').join('');
+    section.appendChild(grid);
+    container.appendChild(section);
+
+    try {
+        const url = `${API_BASE}/bycountrycodeexact/${countryCode}?limit=10&hidebroken=true&order=clickcount&reverse=true${buildHttpsParam()}`;
+        const res = await fetch(url);
+        let stations = await res.json();
+        stations = stations.filter(s => s.url_resolved && (!httpsOnly || s.url_resolved.startsWith('https://')));
+        grid.innerHTML = '';
+        if (stations.length) renderCards(stations, grid);
+        else grid.innerHTML = '<div class="dash-empty">No local stations found yet.</div>';
+    } catch (e) {
+        grid.innerHTML = '<button class="dash-retry" type="button">Retry local stations</button>';
+        grid.querySelector('button').onclick = () => {
+            section.remove();
+            createLocalStationsSection(container);
+        };
+    }
+}
+
+function createDashboardSection(container, title, icon, stations, isHorizontal = false, options = {}) {
+    const section = document.createElement('div');
+    section.className = 'dash-section';
+    section.appendChild(createSectionHeader(title, icon, options));
     
     const grid = document.createElement('div');
     grid.className = isHorizontal ? 'horizontal-grid' : 'channel-grid';
@@ -501,10 +888,10 @@ function createDashboardSection(container, title, icon, stations, isHorizontal =
     container.appendChild(section);
 }
 
-function createChipSection(container, title, icon, items, callback, isHorizontal = false) {
+function createChipSection(container, title, icon, items, callback, isHorizontal = false, options = {}) {
     const section = document.createElement('div');
     section.className = 'dash-section';
-    section.innerHTML = `<div class="dash-header"><span class="material-icons">${icon}</span> ${title}</div>`;
+    section.appendChild(createSectionHeader(title, icon, options));
     
     const grid = document.createElement('div');
     grid.className = isHorizontal ? 'horizontal-chip-grid' : 'chip-grid';
@@ -520,6 +907,80 @@ function createChipSection(container, title, icon, items, callback, isHorizontal
 
     section.appendChild(grid);
     container.appendChild(section);
+    return { section, grid };
+}
+
+function createGenreExplorer(container, genres) {
+    const groups = [
+        { name: 'All', items: genres },
+        { name: 'Music', items: ['Pop', 'Rock', 'Jazz', 'Classical', 'Hip Hop', 'Country', 'Blues', 'Folk', 'Latin', 'Metal', 'Reggae', 'Soul', 'Indie'] },
+        { name: 'Electronic', items: ['Electronic', 'House', 'Techno', 'Trance', 'Deep House', 'Dubstep', 'Drum and Bass', 'EDM', 'Synthwave', 'Lo-fi'] },
+        { name: 'Talk', items: ['News', 'Talk', 'Sports', 'Spoken Word', 'Comedy', 'Podcast', 'Education'] },
+        { name: 'World', items: ['World', 'Afrobeat', 'K-Pop', 'J-Pop', 'Bollywood', 'Reggaeton', 'Salsa', 'Bachata'] },
+        { name: 'Decades', items: ['80s', '90s', 'Oldies', 'Classic Rock', 'Disco'] }
+    ];
+
+    const section = document.createElement('div');
+    section.className = 'dash-section';
+    section.appendChild(createSectionHeader('Browse by Genre', 'category', {
+        subtitle: 'Filter the long genre list into useful listening lanes.'
+    }));
+    const tabs = document.createElement('div');
+    tabs.className = 'dash-tabs';
+    const grid = document.createElement('div');
+    grid.className = 'horizontal-chip-grid';
+
+    const renderGroup = (group, activeBtn) => {
+        tabs.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+        if (activeBtn) activeBtn.classList.add('active');
+        grid.innerHTML = '';
+        group.items.forEach(item => {
+            const chip = document.createElement('button');
+            chip.className = 'chip';
+            chip.type = 'button';
+            chip.innerText = item;
+            chip.onclick = () => searchStationsByTag(item);
+            grid.appendChild(chip);
+        });
+    };
+
+    groups.forEach((group, index) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.innerText = group.name;
+        btn.onclick = () => renderGroup(group, btn);
+        tabs.appendChild(btn);
+        if (index === 0) renderGroup(group, btn);
+    });
+
+    section.appendChild(tabs);
+    section.appendChild(grid);
+    container.appendChild(section);
+}
+
+function createCountryExplorer(container, countries) {
+    const { section, grid } = createChipSection(container, 'Browse by Country', 'public', countries, (c) => loadStationsByCountryCode(c.code, c.name), true, {
+        subtitle: 'Search the country list, then jump into local live stations.'
+    });
+    const search = document.createElement('div');
+    search.className = 'dash-filter';
+    search.innerHTML = '<span class="material-icons">search</span><input type="text" placeholder="Filter countries..." autocomplete="off">';
+    const input = search.querySelector('input');
+    input.addEventListener('input', () => {
+        const query = input.value.trim().toLowerCase();
+        grid.innerHTML = '';
+        countries
+            .filter(country => !query || country.name.toLowerCase().includes(query) || country.code.toLowerCase().includes(query))
+            .forEach(country => {
+                const chip = document.createElement('button');
+                chip.className = 'chip';
+                chip.type = 'button';
+                chip.innerText = country.name;
+                chip.onclick = () => loadStationsByCountryCode(country.code, country.name);
+                grid.appendChild(chip);
+            });
+    });
+    section.insertBefore(search, grid);
 }
 
 function loadStationsByCountryCode(code, name) {
@@ -527,7 +988,8 @@ function loadStationsByCountryCode(code, name) {
     currentMode = 'country_filter';
     currentQuery = code; // Store code for pagination
     document.getElementById('section-title').innerText = `Stations in ${name}`;
-    document.getElementById('back-home-btn').classList.remove('hidden');
+    setTopBackVisible(true);
+    updateHeroIntroVisibility(false);
     showListView(); // FIX: Ensure we switch from dashboard to grid view
     const url = `${API_BASE}/bycountrycodeexact/${code}?limit=${LIMIT}&offset=0&hidebroken=true&order=clickcount&reverse=true${buildHttpsParam()}`;
     fetchData(url);
@@ -541,7 +1003,8 @@ function loadCountryStations(reset = true, stayInView = false) {
         showListView();
     }
     document.getElementById('section-title').innerText = "Local Stations";
-    document.getElementById('back-home-btn').classList.add('hidden');
+    setTopBackVisible(true);
+    updateHeroIntroVisibility(false);
 
     if (!countryCode) {
         if (reset) {
@@ -575,7 +1038,8 @@ async function searchStations(query, reset = true, stayInView = false) {
     if (searchInput) searchInput.blur();
 
     document.getElementById('section-title').innerText = `Search: "${query}"`;
-    document.getElementById('back-home-btn').classList.remove('hidden');
+    setTopBackVisible(true);
+    updateHeroIntroVisibility(false);
     const url = `${API_BASE}/search?name=${encodeURIComponent(query)}&limit=${LIMIT}&offset=${currentOffset}&hidebroken=true&order=clickcount&reverse=true${buildHttpsParam()}`;
 
     if (reset) addSearchHistory(query);
@@ -591,7 +1055,8 @@ async function searchStationsByTag(tag) {
     showListView();
 
     document.getElementById('section-title').innerText = `Genre: ${tag}`;
-    document.getElementById('back-home-btn').classList.remove('hidden');
+    setTopBackVisible(true);
+    updateHeroIntroVisibility(false);
     
     const url = `${API_BASE}/search?tag=${encodeURIComponent(tag.toLowerCase())}&limit=${LIMIT}&offset=0&hidebroken=true&order=clickcount&reverse=true${buildHttpsParam()}`;
     fetchData(url, true);
@@ -604,8 +1069,12 @@ function loadSocial() {
     setActiveView('view-social');
 
     if (!socialLoaded) {
-        document.getElementById('social-frame').src = "social/index.html";
+        const socialFrame = document.getElementById('social-frame');
+        socialFrame.addEventListener('load', () => applyTheme(darkMode, false), { once: true });
+        socialFrame.src = "social/index.html";
         socialLoaded = true;
+    } else {
+        applyTheme(darkMode, false);
     }
 }
 
@@ -619,7 +1088,8 @@ function loadFavorites(stayInView = false) {
         showListView();
     }
     document.getElementById('section-title').innerText = "My Favorites";
-    document.getElementById('back-home-btn').classList.remove('hidden');
+    setTopBackVisible(true);
+    updateHeroIntroVisibility(false);
     document.getElementById('channel-grid').innerHTML = '';
     document.getElementById('empty-state').classList.add('hidden');
     hasNextPage = false;
@@ -698,19 +1168,30 @@ function renderCards(stations, container = document.getElementById('channel-grid
 
     stations.forEach(station => {
         const card = document.createElement('div');
-        card.className = 'card';
+        card.className = currentStation && currentStation.stationuuid === station.stationuuid ? 'card playing' : 'card';
 
         const img = station.favicon || PLACEHOLDER_IMG;
         const tags = station.tags || 'Music';
+        const primaryTag = tags.split(',').map(t => t.trim()).filter(Boolean)[0] || 'Music';
         const safeName = station.name || 'Unknown station';
         const votes = formatNumber(station.votes || 0);
+        const bitrate = station.bitrate || 0;
+        const country = station.countrycode || station.country || '';
+        const isHttps = station.url_resolved && station.url_resolved.startsWith('https://');
+        const titleClass = 'card-title marquee-text';
+        const subtitleClass = 'card-subtitle marquee-text';
 
         card.innerHTML = `
             <div class="card-img-wrap">
                 <img src="${img}" class="card-img" onerror="this.src='${PLACEHOLDER_IMG}'">
             </div>
-            <div class="card-title" title="${safeName}">${safeName}</div>
-            <div class="card-subtitle">${station.bitrate || 0} kbps • ${tags}</div>
+            <div class="${titleClass}" title="${escapeHtml(safeName)}"><span>${escapeHtml(safeName)}</span></div>
+            <div class="${subtitleClass}" title="${escapeHtml(primaryTag)}"><span>${escapeHtml(primaryTag)}</span></div>
+            <div class="card-badges">
+                <span class="card-badge">${bitrate} kbps</span>
+                ${country ? `<span class="card-badge">${escapeHtml(country)}</span>` : ''}
+                ${isHttps ? '<span class="card-badge secure">HTTPS</span>' : ''}
+            </div>
             <div class="card-votes">${votes} likes</div>
             <div class="card-actions">
                 <div class="card-actions-left">
@@ -735,7 +1216,103 @@ function renderCards(stations, container = document.getElementById('channel-grid
         card.dataset.station = JSON.stringify(station);
         card.onclick = () => playStation(station);
         container.appendChild(card);
+        updateMarqueeState(card.querySelector('.card-title'));
+        updateMarqueeState(card.querySelector('.card-subtitle'));
     });
+}
+
+function updatePlayingCardState() {
+    document.querySelectorAll('.card').forEach(card => {
+        const data = card.dataset.station;
+        if (!data || !currentStation) {
+            card.classList.remove('playing');
+            return;
+        }
+        try {
+            const station = JSON.parse(data);
+            card.classList.toggle('playing', station.stationuuid === currentStation.stationuuid);
+        } catch (_) {
+            card.classList.remove('playing');
+        }
+    });
+}
+
+function setMarqueeText(target, text, marqueeAfter = 18) {
+    const el = typeof target === 'string' ? document.getElementById(target) : target;
+    if (!el) return;
+
+    const value = text || '';
+    el.classList.add('marquee-text');
+    el.classList.remove('marquee');
+    el.title = value;
+    el.innerHTML = `<span>${escapeHtml(value)}</span>`;
+    updateMarqueeState(el);
+}
+
+function updateMarqueeState(el) {
+    if (!el) return;
+    el.classList.remove('marquee');
+    el.style.removeProperty('--marquee-shift');
+    el.style.removeProperty('--marquee-duration');
+
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        const content = el.querySelector('span');
+        if (!content) return;
+
+        const containerWidth = Math.floor(el.getBoundingClientRect().width);
+        const contentWidth = Math.ceil(content.getBoundingClientRect().width);
+        const overflow = contentWidth - containerWidth;
+        if (containerWidth <= 0 || overflow <= 2) return;
+
+        const readableSpeedPxPerSecond = 24;
+        const movingPartRatio = 0.72;
+        const duration = Math.max(8, (overflow / readableSpeedPxPerSecond) / movingPartRatio);
+
+        el.style.setProperty('--marquee-shift', `${-(overflow + 8)}px`);
+        el.style.setProperty('--marquee-duration', `${duration.toFixed(2)}s`);
+        el.classList.add('marquee');
+    }));
+}
+
+function refreshVisibleMarquees() {
+    document.querySelectorAll('.marquee-text').forEach(updateMarqueeState);
+}
+
+function sanitizeMetadataTitle(rawTitle) {
+    if (typeof rawTitle !== 'string') return '';
+
+    const title = rawTitle
+        .replace(/[\u0000-\u001F\u007F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (!title) return '';
+    if (title.length > 180) return '';
+
+    const lower = title.toLowerCase();
+    const invalidPatterns = [
+        '<?xml',
+        '<html',
+        '<!doctype',
+        '<script',
+        '<rss',
+        '<svg',
+        '{',
+        '}',
+        'tracklist:',
+        'error',
+        'not found',
+        'access denied'
+    ];
+
+    if (invalidPatterns.some(pattern => lower.includes(pattern))) return '';
+    if (/https?:\/\//i.test(title)) return '';
+    if (/<\/?[a-z][\s\S]*>/i.test(title)) return '';
+
+    const alphaNumericCount = (title.match(/[a-z0-9]/gi) || []).length;
+    if (alphaNumericCount < 2) return '';
+
+    return title;
 }
 
 function findStationByUuid(uuid) {
@@ -803,22 +1380,24 @@ function playStation(station) {
     currentStation = station;
     nowPlayingTitle = "";
     lastMetadataTitle = ""; // Reset for new station
+    updateStationUrl(station);
 
     const name = station.name || 'Unknown station';
 
-    const pTitle = document.getElementById('player-title');
-    pTitle.innerText = name;
-    pTitle.title = name;
-    document.getElementById('player-artist').innerText = "Buffering...";
-    document.getElementById('player-art').src = station.favicon || PLACEHOLDER_IMG;
+    setMarqueeText('player-title', name, 18);
+    setMarqueeText('player-artist', "Live stream", 18);
+    setImageWithFallback('player-art', station.favicon);
 
-    document.getElementById('np-art').src = station.favicon || PLACEHOLDER_IMG_LARGE;
-    document.getElementById('np-title').innerText = name;
-    document.getElementById('np-artist').innerText = "Buffering...";
+    setImageWithFallback('np-art', station.favicon, PLACEHOLDER_IMG_LARGE);
+    updateNowPlayingBackground(station.favicon || PLACEHOLDER_IMG_LARGE);
+    setMarqueeText('np-title', name, 24);
+    setMarqueeText('np-artist', "Live stream", 24);
     document.getElementById('np-country').innerText = station.country || "";
 
     updateHeartIcons();
     addToRecent(station);
+    updatePlayingCardState();
+    updateDashboardNowPlaying();
 
     // Use CORS proxy if enabled
     let streamUrl = station.url_resolved;
@@ -829,19 +1408,22 @@ function playStation(station) {
     audio.src = streamUrl;
     audio.volume = isMuted ? 0 : currentVolume;
     audio.play().then(() => {
-        document.getElementById('player-artist').innerText = "Live stream";
-        document.getElementById('np-artist').innerText = "Live stream";
+        setMarqueeText('player-artist', "Live stream", 18);
+        setMarqueeText('np-artist', "Live stream", 24);
+        updateDashboardNowPlaying();
         fetchMetadata(); // Fetch metadata immediately on play
     }).catch(e => {
         console.error(e);
         if (e.name === 'NotAllowedError') {
-            document.getElementById('player-artist').innerText = "Click Play to start";
-            document.getElementById('np-artist').innerText = "Click Play to start";
+            setMarqueeText('player-artist', "Click Play to start", 18);
+            setMarqueeText('np-artist', "Click Play to start", 24);
+            updateDashboardNowPlaying();
             isPlaying = false;
             updatePlayIcons();
         } else {
-            document.getElementById('player-artist').innerText = "Stream offline or blocked";
-            document.getElementById('np-artist').innerText = "Stream offline or blocked";
+            setMarqueeText('player-artist', "Stream offline or blocked", 18);
+            setMarqueeText('np-artist', "Stream offline or blocked", 24);
+            updateDashboardNowPlaying();
         }
     });
 }
@@ -850,21 +1432,21 @@ function togglePlay() {
     if (!currentStation) return;
     if (audio.paused) {
         audio.play().catch(() => {});
-        document.getElementById('player-artist').innerText = "Buffering...";
-        document.getElementById('np-artist').innerText = "Buffering...";
+        setMarqueeText('player-artist', "Buffering...", 18);
+        setMarqueeText('np-artist', "Buffering...", 24);
 
         audio.play().then(() => {
             if (nowPlayingTitle) {
-                document.getElementById('player-artist').innerText = nowPlayingTitle;
-                document.getElementById('np-artist').innerText = nowPlayingTitle;
+                setMarqueeText('player-artist', nowPlayingTitle, 18);
+                setMarqueeText('np-artist', nowPlayingTitle, 24);
             } else {
-                document.getElementById('player-artist').innerText = "Live stream";
-                document.getElementById('np-artist').innerText = "Live stream";
+                setMarqueeText('player-artist', "Live stream", 18);
+                setMarqueeText('np-artist', "Live stream", 24);
             }
             fetchMetadata();
         }).catch(() => {
-            document.getElementById('player-artist').innerText = "Stream offline";
-            document.getElementById('np-artist').innerText = "Stream offline";
+            setMarqueeText('player-artist', "Stream offline", 18);
+            setMarqueeText('np-artist', "Stream offline", 24);
         });
     } else {
         audio.pause();
@@ -941,6 +1523,12 @@ function setActiveView(id) {
     else hero.classList.add('hidden');
 }
 
+function updateHeroIntroVisibility(showIntro) {
+    const hero = document.getElementById('hero-text');
+    if (!hero) return;
+    hero.classList.toggle('dashboard-compact', !showIntro);
+}
+
 function showListView() {
     setActiveView('view-list');
     // Reset dashboard visibility if we are NOT in trending mode
@@ -951,8 +1539,12 @@ function showListView() {
 }
 
 function showNowPlayingView() {
-    if (!currentStation) return;
+    if (!currentStation) {
+        loadTrending();
+        return;
+    }
     setActiveView('view-nowplaying');
+    refreshVisibleMarquees();
 }
 
 function showChatView() {
@@ -976,6 +1568,7 @@ function showSettingsView() {
     document.getElementById('server-select').value = API_BASE_HOST;
     document.getElementById('bitrate-select').value = minBitrate;
     document.getElementById('autoplay-toggle').checked = autoPlay;
+    document.getElementById('theme-toggle').checked = darkMode;
 }
 
 function recordLastView() {
@@ -983,23 +1576,60 @@ function recordLastView() {
     if (current) lastViewId = current.id;
 }
 
+function restoreListChrome() {
+    updateHeroIntroVisibility(currentMode === 'trending');
+    setTopBackVisible(currentMode !== 'trending');
+
+    if (currentMode === 'trending') setActiveNav('trending');
+    else if (currentMode === 'favorites') setActiveNav('favorites');
+    else if (currentMode === 'country') setActiveNav('country');
+    else setActiveNav(null);
+}
+
 function goBack() {
     const currentView = document.querySelector('.view.active-view');
-    
-    // Prevent getting stuck: if last view is same as current, go Home
-    if (currentView && lastViewId === currentView.id) {
+    const currentId = currentView ? currentView.id : 'view-list';
+
+    if (currentId === 'view-nowplaying') {
+        showListView();
+        return;
+    }
+
+    if (currentId === 'view-welcome') {
+        localStorage.setItem('yt_welcome_v2_seen', 'true');
+    }
+
+    if (currentId === 'view-list') {
+        if (currentMode !== 'trending') loadTrending();
+        return;
+    }
+
+    if (currentId === 'view-social') {
+        loadTrending();
+        return;
+    }
+
+    if (!lastViewId || lastViewId === currentId) {
         loadTrending();
         return;
     }
 
     setActiveView(lastViewId);
-    
-    if (lastViewId === 'view-social') setActiveNav('social');
-    else if (lastViewId === 'view-list') {
-        if (currentMode === 'trending') setActiveNav('trending');
-        else if (currentMode === 'favorites') setActiveNav('favorites');
-        else if (currentMode === 'country') setActiveNav('country');
-        else setActiveNav(null);
+
+    if (lastViewId === 'view-social') {
+        setActiveNav('social');
+    } else if (lastViewId === 'view-list') {
+        restoreListChrome();
+    } else if (lastViewId === 'view-nowplaying') {
+        setActiveNav(null);
+    } else if (lastViewId === 'view-about') {
+        setActiveNav('about');
+    } else if (lastViewId === 'view-chat') {
+        setActiveNav('chat');
+    } else if (lastViewId === 'view-settings') {
+        setActiveNav('settings');
+    } else {
+        loadTrending();
     }
 }
 
@@ -1019,8 +1649,8 @@ function openStationModal(station) {
     const modal = document.getElementById('station-modal');
     modal.classList.remove('hidden');
 
-    document.getElementById('modal-art').src = station.favicon || PLACEHOLDER_IMG;
-    document.getElementById('modal-title').innerText = station.name || 'Unknown station';
+    setImageWithFallback('modal-art', station.favicon);
+    setMarqueeText('modal-title', station.name || 'Unknown station', 24);
 
     document.getElementById('modal-country').innerText = station.country || 'Unknown';
     document.getElementById('modal-language').innerText = station.language || 'Unknown';
@@ -1048,8 +1678,11 @@ async function fetchArt(query) {
     const resetArt = () => {
         if (!currentStation) return;
         const def = currentStation.favicon || PLACEHOLDER_IMG;
-        document.getElementById('player-art').src = def;
-        document.getElementById('np-art').src = def;
+        setImageWithFallback('player-art', def);
+        setImageWithFallback('np-art', def, PLACEHOLDER_IMG_LARGE);
+        updateNowPlayingBackground(def);
+        const dashArt = document.getElementById('dash-now-art');
+        if (dashArt) setImageWithFallback(dashArt, def);
     };
 
     if (searchTerm.length < 3) { resetArt(); return; }
@@ -1068,8 +1701,11 @@ async function fetchArt(query) {
         if (data.results && data.results.length > 0) {
             const track = data.results[0];
             const art = track.artworkUrl100.replace('100x100', '600x600');
-            document.getElementById('player-art').src = art;
-            document.getElementById('np-art').src = art;
+            setImageWithFallback('player-art', art);
+            setImageWithFallback('np-art', art, PLACEHOLDER_IMG_LARGE);
+            updateNowPlayingBackground(art);
+            const dashArt = document.getElementById('dash-now-art');
+            if (dashArt) setImageWithFallback(dashArt, art);
         } else {
             resetArt();
         }
@@ -1164,19 +1800,23 @@ function setSleepTimer(minutes) {
 // --- SHARE ---
 async function shareStation() {
     if (!currentStation) return;
+    const stationUrl = getStationShareUrl(currentStation);
+    const status = nowPlayingTitle ? `Now playing: ${nowPlayingTitle}` : 'Live radio stream';
     const shareData = {
         title: 'YouTune Radio',
-        text: `Listening to ${currentStation.name}: ${nowPlayingTitle}`,
-        url: window.location.href
+        text: `Listen to ${currentStation.name} on YouTune Radio. ${status}`,
+        url: stationUrl
     };
 
     if (navigator.share) {
         try { await navigator.share(shareData); } catch (e) {}
     } else {
-        // Fallback: Copy to clipboard
-        const text = `${nowPlayingTitle} on ${currentStation.name} (https://youtuneradio.com)`;
-        navigator.clipboard.writeText(text);
-        showToast("Info copied to clipboard!");
+        try {
+            await copyTextToClipboard(stationUrl);
+            showToast("Station link copied!");
+        } catch (e) {
+            showToast("Could not copy link");
+        }
     }
 }
 
@@ -1229,6 +1869,16 @@ function drawVisualizer() {
     const canvas = document.getElementById('visualizer');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    const nextWidth = Math.max(1, Math.round(rect.width * ratio));
+    const nextHeight = Math.max(1, Math.round(rect.height * ratio));
+
+    if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+        canvas.width = nextWidth;
+        canvas.height = nextHeight;
+    }
+
     const width = canvas.width;
     const height = canvas.height;
 
@@ -1384,13 +2034,14 @@ function saveSettings() {
 }
 
 function resetSettings() {
-    if(confirm("Reset all settings to default? This will not delete your favorites.")) {
+    openConfirmationModal("Reset Settings", "Reset all settings to default? This will not delete your favorites.", "Reset", () => {
         localStorage.removeItem('yt_api_server');
         localStorage.removeItem('yt_min_bitrate');
         localStorage.removeItem('yt_auto_play');
         localStorage.removeItem('yt_https_only');
+        localStorage.removeItem('yt_theme');
         location.reload();
-    }
+    });
 }
 
 // --- ZEN MODE ---
@@ -1451,24 +2102,27 @@ function fetchMetadata() {
             return response.json();
         })
         .then(data => {
-            if (data && data.title && typeof data.title === 'string' && data.title.trim() && !data.title.includes('{') && data.title !== lastMetadataTitle) {
-                // Check for invalid metadata (URLs or generic messages)
-                const t = data.title.trim();
-                const isUrl = t.match(/https?:\/\//i);
-                const isTracklist = t.toLowerCase().startsWith('tracklist:');
-                if (isUrl || isTracklist) {
-                    document.getElementById('player-artist').innerText = 'Live stream';
-                    document.getElementById('np-artist').innerText = 'Live stream';
-                    nowPlayingTitle = '';
-                    lastMetadataTitle = t;
-                } else {
-                    lastMetadataTitle = t;
-                    document.getElementById('player-artist').innerText = t;
-                    document.getElementById('np-artist').innerText = t;
-                    nowPlayingTitle = t;
-                    fetchArt(t);
-                }
+            if (!data || typeof data.title !== 'string') return;
+
+            const rawTitle = data.title.trim();
+            if (!rawTitle || rawTitle === lastMetadataTitle) return;
+
+            lastMetadataTitle = rawTitle;
+            const t = sanitizeMetadataTitle(rawTitle);
+
+            if (!t) {
+                setMarqueeText('player-artist', 'Live stream', 18);
+                setMarqueeText('np-artist', 'Live stream', 24);
+                nowPlayingTitle = '';
+                updateDashboardNowPlaying();
+                return;
             }
+
+            setMarqueeText('player-artist', t, 18);
+            setMarqueeText('np-artist', t, 24);
+            nowPlayingTitle = t;
+            updateDashboardNowPlaying();
+            fetchArt(t);
         })
         .catch(error => {
             // Only log errors occasionally to avoid spam
@@ -1494,8 +2148,11 @@ function initContentProtection() {
 // Close emoji picker when clicking outside
 document.addEventListener('click', (e) => {
     const picker = document.getElementById('emoji-picker');
-    if (picker && !picker.classList.contains('hidden') && !e.target.closest('.emoji-picker') && !e.target.closest('.chat-input-area')) {
-        picker.classList.add('hidden');
+    const toggleBtn = document.querySelector('.emoji-toggle-btn');
+    if (picker && !picker.classList.contains('hidden')) {
+        if (!picker.contains(e.target) && (!toggleBtn || !toggleBtn.contains(e.target))) {
+            picker.classList.add('hidden');
+        }
     }
 });
 
@@ -1824,55 +2481,68 @@ const EMOJI_CATEGORIES = {
 function toggleEmojiPicker() {
     const picker = document.getElementById('emoji-picker');
     
-    if (picker.innerHTML === '') {
-        // Create Fixed Tabs
-        const tabsContainer = document.createElement('div');
-        tabsContainer.className = 'emoji-tabs';
-        
-        // Create Scrollable Area
-        const contentContainer = document.createElement('div');
-        contentContainer.id = 'emoji-content-area';
-        contentContainer.className = 'emoji-content';
-        
-        Object.keys(EMOJI_CATEGORIES).forEach((catName, index) => {
-            const tab = document.createElement('button');
-            tab.className = 'emoji-tab' + (index === 0 ? ' active' : '');
-            tab.innerText = EMOJI_CATEGORIES[catName][0]; 
-            tab.title = catName;
-            tab.type = 'button';
-            
-            tab.onclick = () => {
-                document.querySelectorAll('.emoji-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                renderEmojiCategory(catName);
-            };
-            
-            tabsContainer.appendChild(tab);
-        });
-        
-        picker.appendChild(tabsContainer);
-        picker.appendChild(contentContainer);
-        
-        renderEmojiCategory(Object.keys(EMOJI_CATEGORIES)[0]);
+    if (picker.children.length === 0) {
+        buildEmojiPickerUI(picker);
     }
     
     picker.classList.toggle('hidden');
 }
 
-function renderEmojiCategory(category) {
-    const container = document.getElementById('emoji-content-area');
-    container.innerHTML = ''; 
-    
-    EMOJI_CATEGORIES[category].forEach(emoji => {
+function getEmojiCategoryList() {
+    return Object.keys(EMOJI_CATEGORIES).map(name => ({
+        name,
+        emojis: EMOJI_CATEGORIES[name]
+    }));
+}
+
+function buildEmojiPickerUI(container) {
+    const tabs = document.createElement('div');
+    tabs.className = 'emoji-tabs';
+
+    const content = document.createElement('div');
+    content.className = 'emoji-content';
+
+    getEmojiCategoryList().forEach((cat, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'emoji-tab';
+        btn.innerText = cat.emojis[0];
+        btn.title = cat.name;
+        btn.type = 'button';
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            switchEmojiCategory(idx, tabs, content);
+        };
+        tabs.appendChild(btn);
+    });
+
+    container.appendChild(tabs);
+    container.appendChild(content);
+
+    switchEmojiCategory(0, tabs, content);
+}
+
+function switchEmojiCategory(idx, tabsContainer, contentContainer) {
+    Array.from(tabsContainer.children).forEach((btn, i) => {
+        btn.classList.toggle('active', i === idx);
+    });
+
+    contentContainer.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'emoji-grid';
+
+    const category = getEmojiCategoryList()[idx];
+    category.emojis.forEach(emoji => {
+        if (!emoji) return;
         const btn = document.createElement('button');
         btn.className = 'emoji-btn';
         btn.innerText = emoji;
         btn.type = 'button';
         btn.onclick = () => insertEmoji(emoji);
-        container.appendChild(btn);
+        grid.appendChild(btn);
     });
-    
-    container.scrollTop = 0; // Reset scroll position when switching categories
+
+    contentContainer.appendChild(grid);
+    contentContainer.scrollTop = 0;
 }
 
 function insertEmoji(char) {

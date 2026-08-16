@@ -5,17 +5,14 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>YouTune Radio</title>
-
-    <!-- Temporary favicon (will be replaced by your icon later) -->
-      <link rel="icon" href="icon-192.png" type="image/png" />
-
-    <!-- PWA basics -->
+    <link rel="icon" href="icon-192.png" type="image/png" />
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2c3e50">
-
-    <!-- Google Search Console Verification (Paste your code here if using HTML Tag method) -->
-    <!-- <meta name="google-site-verification" content="YOUR_CODE_HERE" /> -->
-
+    <script>
+        if (localStorage.getItem('yt_theme') === 'dark') {
+            document.documentElement.classList.add('dark-mode');
+        }
+    </script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -44,7 +41,7 @@
 
         <div class="sidebar-search">
             <span class="material-icons">search</span>
-            <input type="text" id="search-input" placeholder="Search (e.g. chill, talk)">
+            <input type="text" id="search-input" placeholder="Search (e.g. chill, talk)" enterkeyhint="search">
         </div>
 
         <nav class="nav-menu">
@@ -111,14 +108,14 @@
             <h1>Discover live radio from around the world.</h1>
             <p>Browse stations, track what's playing, and enjoy a clean, focused listening experience.</p>
             <h2 class="section-heading">
-                <button id="back-home-btn" class="icon-btn circle-icon-btn hidden" onclick="loadTrending()" style="margin-right:10px;" title="Back to Home"><span class="material-icons">arrow_back</span></button>
+                <button id="back-home-btn" class="icon-btn circle-icon-btn hidden" onclick="goBack()" style="margin-right:10px;" title="Back"><span class="material-icons">arrow_back</span></button>
                 <span id="section-title">Home</span>
             </h2>
         </div>
 
         <!-- LIST VIEW -->
         <section id="view-list" class="view active-view">
-            <!-- Dashboard Container (New Trending Look) -->
+            <!-- Dashboard Container -->
             <div id="dashboard-container" class="hidden"></div>
 
             <div id="channel-grid" class="channel-grid"></div>
@@ -144,6 +141,7 @@
         <!-- EXTENDED NOW PLAYING VIEW -->
    <section id="view-nowplaying" class="view">
     <div class="np-layout">
+        <div class="np-bg" aria-hidden="true"></div>
         <div class="np-header-row">
             <h2>Now Playing</h2>
             
@@ -165,7 +163,7 @@
         <div class="np-main-row">
             <div class="np-art-col">
                 <div class="np-art-wrapper">
-                    <img id="np-art" src="placeholder.png" alt="">
+                    <img id="np-art" src="placeholder.png" alt="" onerror="this.onerror=null;this.src='placeholder.png'">
                     <canvas id="visualizer" width="300" height="300"></canvas>
                     <div class="art-actions">
                         <button class="art-action-btn" id="record-btn" onclick="toggleRecording()" title="Record Stream">
@@ -215,6 +213,58 @@
     </div>
 </section>
 
+<section id="view-welcome" class="view">
+    <div class="welcome-view-layout">
+        <div class="np-header-row welcome-header-row">
+            <button id="welcome-back-btn" class="icon-btn hidden" onclick="goBack()" title="Back">
+                <span class="material-icons">arrow_back</span>
+            </button>
+            <h2>What's New</h2>
+            <button class="icon-btn" onclick="closeWelcomeView()" title="Close">
+                <span class="material-icons">close</span>
+            </button>
+        </div>
+        <div class="welcome-view-content">
+            <div class="welcome-modal-kicker">Changelog</div>
+            <h3 class="welcome-modal-title">YouTune Radio Updates</h3>
+            <p class="welcome-modal-copy">A quick look at what changed.</p>
+
+            <div class="changelog-section">
+                <div class="changelog-version">
+                    <span>Version 2.0</span>
+                    <small>Modern web player refresh</small>
+                </div>
+                <ul class="welcome-feature-list">
+                    <li><span class="material-icons">dark_mode</span><span>Added light and dark mode across the main player and Social page.</span></li>
+                    <li><span class="material-icons">dashboard</span><span>Redesigned the dashboard with Continue Listening, featured stations, genre filters, country browsing, and better station cards.</span></li>
+                    <li><span class="material-icons">graphic_eq</span><span>Rebuilt the Now Playing view with a modern layout, blurred artwork background, smoother mobile behavior, and cleaner controls.</span></li>
+                    <li><span class="material-icons">share</span><span>Added station share links so URLs can open YouTune Radio directly to a selected station.</span></li>
+                    <li><span class="material-icons">subtitles</span><span>Improved metadata cleanup, fallback text, marquee behavior, and artwork placeholders.</span></li>
+                    <li><span class="material-icons">forum</span><span>Modernized Social and made the Chat emoji picker match the Social picker.</span></li>
+                    <li><span class="material-icons">help_outline</span><span>Expanded the Help Center with answers about playback, local stations, sharing, privacy, updates, and more.</span></li>
+                    <li><span class="material-icons">cached</span><span>Updated the service worker cache flow so existing users can receive new website files more reliably.</span></li>
+                </ul>
+            </div>
+
+            <div class="changelog-section">
+                <div class="changelog-version">
+                    <span>Version 1.x</span>
+                    <small>Original listening experience</small>
+                </div>
+                <ul class="welcome-feature-list">
+                    <li><span class="material-icons">radio</span><span>Browse and play live radio stations from the Radio Browser directory.</span></li>
+                    <li><span class="material-icons">search</span><span>Search stations globally by name and explore local stations from your detected country.</span></li>
+                    <li><span class="material-icons">favorite</span><span>Save favorite stations, keep recent stations, and preserve search history on your device.</span></li>
+                    <li><span class="material-icons">fiber_manual_record</span><span>Record live streams from the Now Playing view and save them as browser-supported audio files.</span></li>
+                    <li><span class="material-icons">timer</span><span>Use the sleep timer to stop playback automatically after a selected duration.</span></li>
+                    <li><span class="material-icons">chat</span><span>Use global chat and the Social feed to connect with other listeners.</span></li>
+                    <li><span class="material-icons">settings</span><span>Configure playback options like HTTPS-only streams, minimum bitrate, autoplay, volume, and API server.</span></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
 <section id="view-about" class="view">
             <div class="about-layout">
                 <div class="about-header">
@@ -224,7 +274,7 @@
                             YouTune Radio
                         </h2>
                         <p class="about-version" style="color: var(--text-grey); font-size: 0.9rem; margin-bottom: 0;">
-                            Version 1.0 Stable
+                            Version 2.0 Stable
                         </p>
                     </div>
                 </div>
@@ -294,6 +344,11 @@
                 </div>
 
                 <div style="margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap;">
+                    <a href="download/index.html" target="_blank" class="page-btn" style="text-decoration: none; color: var(--text-dark); border-color: #cbd5e1;">
+                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">download</span> 
+                        Download Apps
+                    </a>
+
                     <a href="mailto:exeinn.info@gmail.com" class="page-btn" style="text-decoration: none; color: var(--text-dark); border-color: #cbd5e1;">
                         <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">email</span> 
                         Contact Me
@@ -318,6 +373,11 @@
                         <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">feedback</span> 
                         Feedback
                     </a>
+
+                    <button type="button" class="page-btn" onclick="showWelcomeView(false)" style="text-decoration: none; color: var(--text-dark);">
+                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">new_releases</span>
+                        What's New
+                    </button>
                 </div>
             </div>
         </section>
@@ -417,6 +477,15 @@
                         </label>
                     </div>
 
+                    <!-- Theme -->
+                    <div class="setting-group row">
+                        <span class="setting-label">Dark Mode</span>
+                        <label class="switch">
+                            <input type="checkbox" id="theme-toggle" onchange="toggleDarkMode(this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
                     <!-- Actions -->
                     <div class="settings-actions">
                         <button onclick="resetSettings()" class="page-btn danger-btn">Reset Defaults</button>
@@ -433,7 +502,8 @@
     <div class="player-left" onclick="showNowPlayingView()">
         <div class="player-art-wrap">
             <img src="placeholder.png"
-                 id="player-art" alt="">
+                 id="player-art" alt=""
+                 onerror="this.onerror=null;this.src='placeholder.png'">
         </div>
         <div class="track-info">
             <div id="player-title" class="p-title" title="Select a station">Select a station</div>
@@ -552,9 +622,6 @@
         </div>
     </div>
 </div>
-
-<!-- Chat username modal -->
-
 
 <!-- Toast Notification -->
 <div id="toast" class="toast hidden"></div>

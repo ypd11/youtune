@@ -37,6 +37,39 @@
             </div>
         </div>
 
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>Why does a station stop or buffer?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>Most buffering issues come from the station's own stream server or the network between you and that station. Try another station first. If only one station has trouble, the stream is likely overloaded, offline, or unstable.</p>
+                <p>If many stations buffer, check your internet connection, disable VPN/proxy tools temporarily, or try switching <strong>HTTPS Only</strong> off in Settings.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>What does HTTPS Only do?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p><strong>HTTPS Only</strong> hides radio streams that do not use secure HTTPS links. This can make playback safer and cleaner in modern browsers.</p>
+                <p>Some older stations still use HTTP streams. If a station will not play or your results feel too limited, turn HTTPS Only off in Settings and try again.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>Why does the app say "Live stream" instead of the song name?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>Song information comes from the radio station. Some stations send artist and title data, while others send nothing, send old data, or send technical text that is not useful.</p>
+                <p>When YouTune Radio cannot confirm that the metadata is a real song or program title, it shows <strong>Live stream</strong> so the player stays clean and readable.</p>
+            </div>
+        </div>
+
         <!-- Recording -->
         <div class="faq-item">
             <button class="faq-question">
@@ -54,6 +87,17 @@
             </div>
         </div>
 
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>Why does recording save as a WEBM file?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>Browsers record audio using the formats they support safely and reliably. On most modern browsers, that means <code>.webm</code>.</p>
+                <p>You can play WEBM audio in modern browsers and many media players. If you need another format, you can convert the file with a trusted audio converter.</p>
+            </div>
+        </div>
+
         <!-- Social -->
         <div class="faq-item">
             <button class="faq-question">
@@ -62,6 +106,27 @@
             </button>
             <div class="faq-answer">
                 <p>The Social Feed is a community space where listeners can post messages, share stations, and comment on others' posts. It connects you with listeners worldwide in real-time.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>What is the global chat?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>The global chat is a live room for listeners who are online at the same time. You can send messages, reply to another listener, like a message, or block a user from your own chat view.</p>
+                <p>Your nickname can be changed from Chat Settings.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>Can I delete my posts or comments?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>Yes. Posts and comments created with your current browser identity can be deleted by you. If you clear browser storage or use another browser/device, the app may no longer recognize those older posts as yours.</p>
             </div>
         </div>
 
@@ -76,6 +141,60 @@
             </div>
         </div>
 
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>Why do some stations show a placeholder image?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>Some stations do not provide a logo, and some artwork sources may fail to load. When that happens, YouTune Radio shows a placeholder image instead of leaving a broken image on the screen.</p>
+            </div>
+        </div>
+
+        <!-- Local Stations -->
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>How do Local Stations work?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>Local Stations uses your browser's location permission to detect your country, then loads live radio stations from that country. The app only needs the country code for this feature.</p>
+                <p>If location access is blocked,  your device location services are off, or the page is not running on HTTPS/localhost, automatic local station detection may not work.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>Can I browse stations from another country?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>Yes. Use the country browser or search tools to find stations from other countries. Local Stations is only a shortcut for your detected country.</p>
+            </div>
+        </div>
+
+        <!-- Sharing -->
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>How do station share links work?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>When you play a station, the page URL updates with that station's id. Sharing that URL lets someone open YouTune Radio directly to the same station.</p>
+                <p>If their browser allows playback, the station will start from that shared link. Some browsers may still require the listener to tap Play first.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>Why did a shared station link fail?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>A shared link can fail if the station was removed from the directory, changed its stream address, is temporarily offline, or is blocked in the listener's country.</p>
+            </div>
+        </div>
+
         <!-- Data -->
         <div class="faq-item">
             <button class="faq-question">
@@ -87,6 +206,26 @@
             </div>
         </div>
 
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>Where are my favorites and settings saved?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>Favorites, recent stations, search history, volume, theme, and player settings are saved in your browser's local storage. They stay on the same browser and device unless you clear site data.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>Why did my favorites disappear?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>Favorites can disappear if browser site data is cleared, private browsing is used, a cleanup app removes local storage, or you switch to a different browser/device.</p>
+            </div>
+        </div>
+
         <!-- Sleep Timer -->
         <div class="faq-item">
             <button class="faq-question">
@@ -95,6 +234,37 @@
             </button>
             <div class="faq-answer">
                 <p>You can set a timer in the <strong>Now Playing</strong> view (clock icon). The audio will automatically stop after the selected duration, perfect for listening while falling asleep.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>How do I install YouTune Radio?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>If your browser supports installation, open the browser menu and choose <strong>Install app</strong> or <strong>Add to home screen</strong>. Installed mode gives YouTune Radio a more app-like window.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>How do I get website updates?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>YouTune Radio uses a service worker so the website can load quickly. When a new version is published, the browser may update the cached files automatically after a refresh or after reopening the app.</p>
+                <p>If something looks outdated, close all YouTune Radio tabs and open the site again. You can also clear site data from your browser settings if needed.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">
+                <span>How do I switch between light and dark mode?</span>
+                <span class="material-icons icon-state">expand_more</span>
+            </button>
+            <div class="faq-answer">
+                <p>Open Settings and use the theme option to switch between light and dark mode. Your choice is saved on this browser.</p>
             </div>
         </div>
     </div>

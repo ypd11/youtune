@@ -11,9 +11,11 @@ let myNickname = localStorage.getItem('yt_nickname') || "Guest";
 let deleteAction = null;
 let realtimeChannel = null;
 let knownLikes = new Map(); // Cache like_id -> { post_id, username }
+let darkMode = localStorage.getItem('yt_theme') === 'dark';
 
 // --- INIT ---
 window.onload = () => {
+    initTheme();
     initContentProtection();
     initSupabase();
     initRealtime();
@@ -25,6 +27,21 @@ window.onload = () => {
         myNickname = localStorage.getItem('yt_nickname') || "Guest";
     });
 };
+
+// --- THEME ---
+function initTheme() {
+    applyTheme(darkMode);
+
+    window.addEventListener('message', (event) => {
+        if (!event.data || event.data.type !== 'yt-theme') return;
+        applyTheme(Boolean(event.data.darkMode));
+    });
+}
+
+function applyTheme(isDark) {
+    darkMode = isDark;
+    document.documentElement.classList.toggle('dark-mode', isDark);
+}
 
 function initSupabase() {
     if (window.supabase) {
