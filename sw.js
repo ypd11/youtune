@@ -1,4 +1,4 @@
-const CACHE_NAME = 'youtune-radio-v2-1';
+const CACHE_NAME = 'youtune-radio-v2-2';
 const FRESH_FILES = new Set([
   '/',
   '/index.html',

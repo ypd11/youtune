@@ -22,6 +22,8 @@ let autoPlay = localStorage.getItem('yt_auto_play') === 'true';
 let currentVolume = parseFloat(localStorage.getItem('yt_volume')) || 1;
 let isMuted = false;
 let darkMode = localStorage.getItem('yt_theme') === 'dark';
+let keepAwake = localStorage.getItem('yt_keep_awake') !== 'false';
+let wakeLock = null;
 
 let currentStation = null;
 let isPlaying = false;
@@ -106,6 +108,7 @@ window.onload = () => {
     audio.addEventListener('play', () => {
         isPlaying = true;
         updatePlayIcons();
+        requestWakeLock();
         // Start metadata polling
         if (metadataInterval) clearInterval(metadataInterval);
         metadataInterval = setInterval(fetchMetadata, 5000);
@@ -117,6 +120,7 @@ window.onload = () => {
     audio.addEventListener('pause', () => {
         isPlaying = false;
         updatePlayIcons();
+        releaseWakeLock();
         // Stop metadata polling
         if (metadataInterval) {
             clearInterval(metadataInterval);
@@ -129,12 +133,18 @@ window.onload = () => {
         setMarqueeText('np-artist', "Stream offline or blocked", 24);
         isPlaying = false;
         updatePlayIcons();
+        releaseWakeLock();
         // Stop metadata polling
         if (metadataInterval) {
             clearInterval(metadataInterval);
             metadataInterval = null;
         }
     };
+
+    // Re-acquire wake lock when the tab becomes visible again
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && isPlaying) requestWakeLock();
+    });
 
     registerServiceWorker();
 
@@ -229,6 +239,9 @@ function applyTheme(isDark, persist = true) {
     const toggle = document.getElementById('theme-toggle');
     if (toggle) toggle.checked = isDark;
 
+    const quickIcon = document.querySelector('#theme-quick-btn .material-icons');
+    if (quickIcon) quickIcon.innerText = isDark ? 'light_mode' : 'dark_mode';
+
     const frame = document.getElementById('social-frame');
     if (frame && frame.contentWindow) {
         frame.contentWindow.postMessage({ type: 'yt-theme', darkMode: isDark }, '*');
@@ -237,6 +250,10 @@ function applyTheme(isDark, persist = true) {
 
 function toggleDarkMode(isDark) {
     applyTheme(isDark);
+}
+
+function quickToggleTheme() {
+    applyTheme(!darkMode);
 }
 
 // --- PWA SW REGISTER ---
@@ -995,6 +1012,13 @@ function loadStationsByCountryCode(code, name) {
     fetchData(url);
 }
 
+function setEmptyState(message) {
+    const empty = document.getElementById('empty-state');
+    const msg = document.getElementById('empty-state-msg');
+    if (msg) msg.textContent = message;
+    empty.classList.remove('hidden');
+}
+
 function loadCountryStations(reset = true, stayInView = false) {
     currentMode = 'country';
     currentQuery = '';
@@ -1009,9 +1033,7 @@ function loadCountryStations(reset = true, stayInView = false) {
     if (!countryCode) {
         if (reset) {
             resetList();
-            const empty = document.getElementById('empty-state');
-            empty.classList.remove('hidden');
-            empty.innerText = "We couldn't detect your country yet. Please allow location access.";
+            setEmptyState("We couldn't detect your country yet. Please allow location access.");
             updatePaginationUI(false);
         }
         return;
@@ -1095,8 +1117,7 @@ function loadFavorites(stayInView = false) {
     hasNextPage = false;
 
     if (favorites.length === 0) {
-        document.getElementById('empty-state').classList.remove('hidden');
-        document.getElementById('empty-state').innerText = "You haven't added any favorites yet.";
+        setEmptyState("You haven't added any favorites yet.");
         updatePaginationUI(false);
     } else {
         renderFavoritesPage();
@@ -1138,11 +1159,9 @@ async function fetchData(url, isSearch = false, isCountry = false) {
         }
 
         if (stations.length === 0 && currentOffset === 0) {
-            const empty = document.getElementById('empty-state');
-            empty.classList.remove('hidden');
-            empty.innerText = isSearch
+            setEmptyState(isSearch
                 ? "No stations found for this search. Try a broader term."
-                : "No stations found.";
+                : "No stations found.");
             hasNextPage = false;
             updatePaginationUI(false);
         } else {
@@ -1152,9 +1171,7 @@ async function fetchData(url, isSearch = false, isCountry = false) {
         }
     } catch (e) {
         console.error(e);
-        const empty = document.getElementById('empty-state');
-        empty.classList.remove('hidden');
-        empty.innerText = "Error loading stations.";
+        setEmptyState("Error loading stations.");
         hasNextPage = false;
         updatePaginationUI(false);
     }
@@ -1162,6 +1179,11 @@ async function fetchData(url, isSearch = false, isCountry = false) {
 }
 
 // --- RENDER UI ---
+function countryCodeToFlag(code) {
+    if (!/^[A-Z]{2}$/.test(code)) return '';
+    return String.fromCodePoint(0x1F1E6 + code.charCodeAt(0) - 65, 0x1F1E6 + code.charCodeAt(1) - 65);
+}
+
 function renderCards(stations, container = document.getElementById('channel-grid')) {
     // If using default container, ensure it's cleared if needed (handled by resetList usually)
     // But for dashboard, we append to the specific grid passed in.
@@ -1176,7 +1198,9 @@ function renderCards(stations, container = document.getElementById('channel-grid
         const safeName = station.name || 'Unknown station';
         const votes = formatNumber(station.votes || 0);
         const bitrate = station.bitrate || 0;
-        const country = station.countrycode || station.country || '';
+        const cc = (station.countrycode || '').toUpperCase();
+        const flag = countryCodeToFlag(cc);
+        const country = flag ? cc : (station.countrycode || station.country || '');
         const isHttps = station.url_resolved && station.url_resolved.startsWith('https://');
         const titleClass = 'card-title marquee-text';
         const subtitleClass = 'card-subtitle marquee-text';
@@ -1184,12 +1208,13 @@ function renderCards(stations, container = document.getElementById('channel-grid
         card.innerHTML = `
             <div class="card-img-wrap">
                 <img src="${img}" class="card-img" onerror="this.src='${PLACEHOLDER_IMG}'">
+                <div class="card-eq eq-bars" aria-hidden="true"><span></span><span></span><span></span></div>
             </div>
             <div class="${titleClass}" title="${escapeHtml(safeName)}"><span>${escapeHtml(safeName)}</span></div>
             <div class="${subtitleClass}" title="${escapeHtml(primaryTag)}"><span>${escapeHtml(primaryTag)}</span></div>
             <div class="card-badges">
                 <span class="card-badge">${bitrate} kbps</span>
-                ${country ? `<span class="card-badge">${escapeHtml(country)}</span>` : ''}
+                ${country ? `<span class="card-badge">${flag ? flag + ' ' : ''}${escapeHtml(country)}</span>` : ''}
                 ${isHttps ? '<span class="card-badge secure">HTTPS</span>' : ''}
             </div>
             <div class="card-votes">${votes} likes</div>
@@ -1457,6 +1482,8 @@ function updatePlayIcons() {
     const icon = document.getElementById('play-icon');
     const value = isPlaying ? 'pause' : 'play_arrow';
     icon.innerText = value;
+    const playBtn = document.querySelector('.play-circle');
+    if (playBtn) playBtn.classList.toggle('playing', isPlaying);
 }
 
 // --- VOLUME ---
@@ -1487,6 +1514,35 @@ function toggleMute() {
     
     const icon = document.querySelector('#mute-btn .material-icons');
     if (icon) icon.innerText = isMuted ? 'volume_off' : 'volume_up';
+}
+
+// --- WAKE LOCK (keeps laptop awake while playing) ---
+async function requestWakeLock() {
+    if (!keepAwake || !isPlaying) return;
+    if (!('wakeLock' in navigator)) return;
+    if (document.visibilityState !== 'visible') return;
+    if (wakeLock) return;
+
+    try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch (e) {
+        console.log('Wake lock request failed:', e);
+    }
+}
+
+function releaseWakeLock() {
+    if (!wakeLock) return;
+    wakeLock.release().catch(() => {});
+    wakeLock = null;
+}
+
+function toggleKeepAwake(checked) {
+    keepAwake = checked;
+    localStorage.setItem('yt_keep_awake', checked ? 'true' : 'false');
+
+    if (checked) requestWakeLock();
+    else releaseWakeLock();
 }
 
 function updateHeartIcons() {
@@ -1569,6 +1625,7 @@ function showSettingsView() {
     document.getElementById('bitrate-select').value = minBitrate;
     document.getElementById('autoplay-toggle').checked = autoPlay;
     document.getElementById('theme-toggle').checked = darkMode;
+    document.getElementById('awake-toggle').checked = keepAwake;
 }
 
 function recordLastView() {
@@ -1765,11 +1822,17 @@ function setSleepTimer(minutes) {
 
     const btn = document.getElementById('sleep-timer-btn');
     const icon = btn.querySelector('.material-icons');
+    const sleepPill = document.getElementById('status-sleep');
+    const sleepLabel = document.getElementById('status-sleep-label');
 
     if (minutes > 0) {
         btn.classList.add('sleep-active');
         btn.title = `Sleep Timer: ${minutes} min`;
         icon.innerText = 'timer';
+        if (sleepPill && sleepLabel) {
+            sleepLabel.textContent = minutes >= 60 ? `${minutes / 60}h` : `${minutes}m`;
+            sleepPill.classList.remove('hidden');
+        }
         
         // Set new timer
         sleepTimer = setTimeout(() => {
@@ -1782,6 +1845,7 @@ function setSleepTimer(minutes) {
         btn.classList.remove('sleep-active');
         btn.title = "Sleep Timer: Off";
         icon.innerText = 'timer_off';
+        if (sleepPill) sleepPill.classList.add('hidden');
         if (minutes > 0) showToast(`Sleep timer set for ${minutes} minutes`);
         else if (sleepTimer === null && minutes === 0) showToast("Sleep timer turned off");
     }
@@ -1951,11 +2015,15 @@ function startRecording() {
             a.click();
             showToast("Recording saved!");
             document.getElementById('record-btn').classList.remove('recording-active');
+            const recPill = document.getElementById('status-rec');
+            if (recPill) recPill.classList.add('hidden');
         };
         
         mediaRecorder.start();
         showToast("Recording started...");
         document.getElementById('record-btn').classList.add('recording-active');
+        const recPill = document.getElementById('status-rec');
+        if (recPill) recPill.classList.remove('hidden');
     } catch (e) {
         console.error(e);
         showToast("Recording failed to start.");
@@ -2040,6 +2108,7 @@ function resetSettings() {
         localStorage.removeItem('yt_auto_play');
         localStorage.removeItem('yt_https_only');
         localStorage.removeItem('yt_theme');
+        localStorage.removeItem('yt_keep_awake');
         location.reload();
     });
 }
@@ -2229,7 +2298,7 @@ function initChatHistory() {
     if (container && history.length > 0) {
         // Clear default welcome message if we have history
         container.innerHTML = '';
-        history.forEach(msg => appendChatMessage(msg.user, msg.text, msg.type, false, msg.userId, msg.replyTo));
+        history.forEach(msg => appendChatMessage(msg.user, msg.text, msg.type, false, msg.userId, msg.replyTo, msg.time));
     }
 }
 
@@ -2261,7 +2330,7 @@ function sendChatMessage(e) {
     input.value = '';
 }
 
-function appendChatMessage(user, text, type, save = true, userId = null, replyTo = null) {
+function appendChatMessage(user, text, type, save = true, userId = null, replyTo = null, time = null) {
     // Check Blocked
     if (userId && blockedUsers[userId]) return;
 
@@ -2270,15 +2339,18 @@ function appendChatMessage(user, text, type, save = true, userId = null, replyTo
 
     // Format text with mentions
     const formattedText = formatMessageText(text, type === 'sent');
+    const msgTime = time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const div = document.createElement('div');
     div.className = `chat-msg ${type}`;
     
-    // Only show name if it's not me. Make it clickable for blocking.
+    let avatarHtml = '';
     let nameHtml = '';
     if (type === 'received') {
         // Make the entire bubble clickable to open options
         div.setAttribute('onclick', `openChatOptions(event, '${userId}', '${escapeHtml(user)}', '${escapeHtml(text)}')`);
+        const initial = user ? user.charAt(0).toUpperCase() : '?';
+        avatarHtml = `<div class="chat-avatar" style="background:${getRandomColorForUser(user || 'Guest')}">${escapeHtml(initial)}</div>`;
         nameHtml = `<div class="chat-sender">${escapeHtml(user)}</div>`;
     }
     
@@ -2292,14 +2364,14 @@ function appendChatMessage(user, text, type, save = true, userId = null, replyTo
         `;
     }
     
-    div.innerHTML = `${nameHtml}${replyHtml}${formattedText}`;
+    div.innerHTML = `${avatarHtml}<div class="chat-bubble">${nameHtml}${replyHtml}${formattedText}<span class="chat-time">${escapeHtml(msgTime)}</span></div>`;
     
     container.appendChild(div);
     container.scrollTop = container.scrollHeight; // Auto scroll to bottom
 
     if (save) {
         const history = JSON.parse(sessionStorage.getItem('yt_chat_history')) || [];
-        history.push({ user, text, type, userId, replyTo });
+        history.push({ user, text, type, userId, replyTo, time: msgTime });
         // Keep last 50 messages to avoid overflow
         if (history.length > 50) history.shift();
         sessionStorage.setItem('yt_chat_history', JSON.stringify(history));

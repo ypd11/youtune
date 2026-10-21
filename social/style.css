@@ -58,26 +58,6 @@ body {
     color: var(--text-grey);
 }
 
-.header-btn {
-    background: white;
-    border: 1px solid #e5e7eb;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--text-grey);
-    transition: all 0.2s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-}
-.header-btn:hover {
-    background: #f9fafb;
-    color: var(--accent);
-    transform: scale(1.05);
-}
-
 /* Create Post */
 .create-post-card {
     background: var(--card-bg);
@@ -470,7 +450,6 @@ html.dark-mode body {
     color: var(--text-dark);
 }
 
-html.dark-mode .header-btn,
 html.dark-mode .create-post-card,
 html.dark-mode .post-card,
 html.dark-mode .load-more-btn,
@@ -489,7 +468,6 @@ html.dark-mode .modal-content {
     box-shadow: 0 24px 60px rgba(0,0,0,0.45);
 }
 
-html.dark-mode .header-btn:hover,
 html.dark-mode .icon-btn:hover,
 html.dark-mode .load-more-btn:hover,
 html.dark-mode .emoji-tab:hover,
@@ -596,32 +574,6 @@ body {
 .social-page-header p {
     max-width: 480px;
     line-height: 1.45;
-}
-
-.header-btn {
-    width: 44px;
-    height: 44px;
-    border: none;
-    background: var(--accent);
-    color: white;
-    box-shadow: 0 10px 22px rgba(249,115,22,0.25);
-}
-
-.header-btn:hover {
-    background: #ea580c;
-    color: white;
-    transform: translateY(-1px);
-}
-
-html.dark-mode .header-btn,
-html.dark-mode .header-btn:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-}
-
-html.dark-mode .header-btn:hover {
-    background: #ea580c;
 }
 
 .create-post-card,
@@ -944,4 +896,21 @@ html.dark-mode .toast {
         border-radius: 8px;
         padding: 14px;
     }
+}
+
+/* --- Press feedback --- */
+.post-card,
+.create-post-card,
+.load-more-btn,
+.post-btn {
+    transition: transform 0.1s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.post-card:active,
+.create-post-card:active,
+.load-more-btn:active,
+.post-btn:active,
+.circle-icon-btn:active,
+.action-link:active {
+    transform: scale(0.97);
 }

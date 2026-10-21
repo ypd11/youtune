@@ -52,7 +52,7 @@ body {
     position: relative;
     margin-bottom: 40px;
     padding: 80px 20px;
-    background: var(--header-bg);
+    background: linear-gradient(135deg, #2c3e50 0%, #1e293b 100%);
     color: white;
 }
 .logo-area {
@@ -404,3 +404,91 @@ input:checked + .tag-badge {
 }
 @keyframes spin { 100% { transform: rotate(360deg); } }
 .hidden { display: none !important; }
+
+html.dark-mode {
+    color-scheme: dark;
+    --bg-main: #0f172a;
+    --text-dark: #f8fafc;
+    --text-grey: #94a3b8;
+    --card-bg: #111827;
+    --border-color: #334155;
+}
+html.dark-mode body {
+    background: var(--bg-main);
+    color: var(--text-dark);
+}
+html.dark-mode .filter-btn {
+    background: var(--card-bg);
+    color: var(--text-grey);
+}
+html.dark-mode .filter-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+html.dark-mode textarea {
+    background: #1f2937;
+    border-color: var(--border-color);
+    color: var(--text-dark);
+}
+html.dark-mode .tag-badge.bug,
+html.dark-mode .post-tag.bug {
+    background: rgba(239,68,68,0.18);
+    color: #f87171;
+}
+html.dark-mode .tag-badge.feature,
+html.dark-mode .post-tag.feature {
+    background: rgba(59,130,246,0.18);
+    color: #60a5fa;
+}
+html.dark-mode .status-open {
+    background: #1f2937;
+    color: #94a3b8;
+}
+html.dark-mode .status-in_progress {
+    background: rgba(245,158,11,0.16);
+    color: #fbbf24;
+}
+html.dark-mode .status-done {
+    background: rgba(34,197,94,0.16);
+    color: #4ade80;
+}
+html.dark-mode .modal-content {
+    background: #1f2937;
+    border: 1px solid #475569;
+    color: var(--text-dark);
+}
+html.dark-mode .modal-btn.cancel {
+    background: #334155;
+    color: var(--text-dark);
+}
+html.dark-mode .admin-controls {
+    border-top-color: var(--border-color);
+}
+html.dark-mode .vote-btn:hover {
+    background: rgba(255,255,255,0.08);
+}
+html.dark-mode .loader {
+    border-color: #334155;
+    border-top-color: var(--accent);
+}
+
+html.dark-mode .feedback-header {
+    background: linear-gradient(135deg, #111827 0%, #0f172a 100%);
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

@@ -5,7 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Download YouTune Radio</title>
     <link rel="icon" href="icon-192.png" type="image/png" />
-    <meta name="theme-color" content="#2c3e50">
+        <meta name="theme-color" content="#2c3e50">
+        <script>
+            function applyDownloadTheme(isDark) {
+                document.documentElement.classList.toggle('dark-mode', isDark);
+                const meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) meta.setAttribute('content', isDark ? '#111827' : '#2c3e50');
+            }
+            if (localStorage.getItem('yt_theme') === 'dark') {
+                applyDownloadTheme(true);
+            } else {
+                applyDownloadTheme(false);
+            }
+        </script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -40,7 +52,7 @@
         .download-header {
             text-align: center;
             padding: 80px 20px;
-            background: var(--header-bg);
+            background: linear-gradient(135deg, #2c3e50 0%, #1e293b 100%);
             color: white;
         }
 
@@ -74,7 +86,12 @@
             margin: 0 auto;
         }
 
-        /* Container */
+        .download-info {
+            margin-top: 18px;
+            color: var(--text-grey);
+            font-size: 0.88rem;
+            text-align: center;
+        }
         .container {
             max-width: 800px;
             margin: -40px auto 60px;
@@ -223,6 +240,35 @@
                 margin-top: 30px;
             }
         }
+
+        html.dark-mode .download-header {
+            background: linear-gradient(135deg, #111827 0%, #0f172a 100%);
+        }
+            --text-dark: #f8fafc;
+            --text-grey: #94a3b8;
+            --card-bg: #111827;
+            --border-color: #334155;
+        }
+        html.dark-mode body {
+            background: var(--bg-main);
+            color: var(--text-dark);
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -236,37 +282,39 @@
 </header>
 
 <div class="container">
-    <div class="download-grid">
-        <!-- Windows Card -->
-        <div class="download-card">
-            <div class="platform-icon">
-                <svg viewBox="0 0 24 24">
-                    <path d="M0 0h11.387v11.387H0V0zm12.613 0H24v11.387H12.613V0zM0 12.613h11.387V24H0V12.613zm12.613 0H24V24H12.613V12.613z"/>
-                </svg>
+        <div class="download-grid">
+            <!-- Windows Card -->
+            <div class="download-card">
+                <div class="platform-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M0 0h11.387v11.387H0V0zm12.613 0H24v11.387H12.613V0zM0 12.613h11.387V24H0V12.613zm12.613 0H24V24H12.613V12.613z"/>
+                    </svg>
+                </div>
+                <h2>Windows</h2>
+                <p>Desktop Application (.exe)</p>
+                <a href="https://github.com/ypd11/youtune/releases/latest/download/youtuneradio-installer.exe" class="download-btn" download>
+                    <span class="material-icons">download</span>
+                    <span>Download Now</span>
+                </a>
+                <div class="download-info">Version: v1.0.0 · Size: ~2.66 MB</div>
             </div>
-            <h2>Windows</h2>
-            <p>Desktop Application (.exe)</p>
-            <a href="https://github.com/ypd11/youtune/releases/latest/download/youtuneradio-installer.exe" class="download-btn" download>
-                <span class="material-icons">download</span>
-                <span>Download Now</span>
-            </a>
-        </div>
 
-        <!-- Android Card -->
-        <div class="download-card">
-            <div class="platform-icon">
-                <svg viewBox="0 0 24 24">
-                    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9997.9993-.9997c.5511 0 .9993.4486.9993.9997s-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9997.9993-.9997c.5511 0 .9993.4486.9993.9997s-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.41 13.8645 8.0053 12 8.0053c-1.8645 0-3.5902.4047-5.1367.9443l-2.0223-3.503a.416.416 0 00-.5676-.1521.416.416 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1859.4129 14.3939.0506 18.261h23.8988c-.3623-3.8671-2.6383-7.0751-6.0639-9.3249"/>
-                </svg>
+            <!-- Android Card -->
+            <div class="download-card">
+                <div class="platform-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9997.9993-.9997c.5511 0 .9993.4486.9993.9997s-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9997.9993-.9997c.5511 0 .9993.4486.9993.9997s-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.41 13.8645 8.0053 12 8.0053c-1.8645 0-3.5902.4047-5.1367.9443l-2.0223-3.503a.416.416 0 00-.5676-.1521.416.416 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1859.4129 14.3939.0506 18.261h23.8988c-.3623-3.8671-2.6383-7.0751-6.0639-9.3249"/>
+                    </svg>
+                </div>
+                <h2>Android</h2>
+                <p>Mobile Application (.apk)</p>
+                <a href="https://github.com/ypd11/youtune/releases/latest/download/youtuneradio.apk" class="download-btn" download>
+                    <span class="material-icons">android</span>
+                    <span>Download Now</span>
+                </a>
+                <div class="download-info">Version: v1.0.0 · Size: ~5.18 MB</div>
             </div>
-            <h2>Android</h2>
-            <p>Mobile Application (.apk)</p>
-            <a href="https://github.com/ypd11/youtune/releases/latest/download/youtuneradio.apk" class="download-btn" download>
-                <span class="material-icons">android</span>
-                <span>Download Now</span>
-            </a>
         </div>
-    </div>
 
     <div class="footer-note">
         <p>YouTune Radio &copy; 2026, by Exe Innovate</p>

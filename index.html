@@ -7,7 +7,18 @@
     <title>YouTune Radio</title>
     <link rel="icon" href="icon-192.png" type="image/png" />
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#2c3e50">
+        <meta name="theme-color" content="#2c3e50">
+        <script>
+            (function() {
+                try {
+                    if (localStorage.getItem('yt_theme') === 'dark') {
+                        document.documentElement.classList.add('dark-mode');
+                        var meta = document.querySelector('meta[name="theme-color"]');
+                        if (meta) meta.setAttribute('content', '#111827');
+                    }
+                } catch(e) {}
+            })();
+        </script>
     <script>
         if (localStorage.getItem('yt_theme') === 'dark') {
             document.documentElement.classList.add('dark-mode');
@@ -122,7 +133,10 @@
 
             <div id="loader" class="loader hidden"></div>
 
-            <div id="empty-state" class="hidden" style="padding:20px; color:#ccc;">No stations found.</div>
+            <div id="empty-state" class="empty-state hidden">
+                <span class="material-icons">search_off</span>
+                <p id="empty-state-msg">No stations found.</p>
+            </div>
 
             <div id="pagination" class="pagination hidden">
                 <button id="page-prev" class="page-btn" onclick="changePage(-1)">
@@ -229,24 +243,22 @@
             <h3 class="welcome-modal-title">YouTune Radio Updates</h3>
             <p class="welcome-modal-copy">A quick look at what changed.</p>
 
-            <div class="changelog-section">
-                <div class="changelog-version">
-                    <span>Version 2.0</span>
-                    <small>Modern web player refresh</small>
+                <div class="changelog-section">
+                    <div class="changelog-version">
+                        <span>Version 2.1</span>
+                        <small>UI polish &amp; consistency</small>
+                    </div>
+                    <ul class="welcome-feature-list">
+                        <li><span class="material-icons">forum</span><span>Unified chat with avatars, names, and always-visible timestamps.</span></li>
+                        <li><span class="material-icons">flag</span><span>Station cards now show country flags with codes and a playing-equalizer pill.</span></li>
+                        <li><span class="material-icons">brightness_6</span><span>Quick dark/light toggle added to the player bar for instant theme switching.</span></li>
+                        <li><span class="material-icons">space_dashboard</span><span>Sidebar active item now clearly highlighted with an orange accent pill.</span></li>
+                        <li><span class="material-icons">touch_app</span><span>Added subtle press feedback across cards, chips, buttons, and social posts.</span></li>
+                        <li><span class="material-icons">palette</span><span>Improved empty states, sub-page dark mode, accessibility (focus-visible, reduced motion), and refreshed About/Download pages.</span></li>
+                    </ul>
                 </div>
-                <ul class="welcome-feature-list">
-                    <li><span class="material-icons">dark_mode</span><span>Added light and dark mode across the main player and Social page.</span></li>
-                    <li><span class="material-icons">dashboard</span><span>Redesigned the dashboard with Continue Listening, featured stations, genre filters, country browsing, and better station cards.</span></li>
-                    <li><span class="material-icons">graphic_eq</span><span>Rebuilt the Now Playing view with a modern layout, blurred artwork background, smoother mobile behavior, and cleaner controls.</span></li>
-                    <li><span class="material-icons">share</span><span>Added station share links so URLs can open YouTune Radio directly to a selected station.</span></li>
-                    <li><span class="material-icons">subtitles</span><span>Improved metadata cleanup, fallback text, marquee behavior, and artwork placeholders.</span></li>
-                    <li><span class="material-icons">forum</span><span>Modernized Social and made the Chat emoji picker match the Social picker.</span></li>
-                    <li><span class="material-icons">help_outline</span><span>Expanded the Help Center with answers about playback, local stations, sharing, privacy, updates, and more.</span></li>
-                    <li><span class="material-icons">cached</span><span>Updated the service worker cache flow so existing users can receive new website files more reliably.</span></li>
-                </ul>
-            </div>
 
-            <div class="changelog-section">
+                <div class="changelog-section">
                 <div class="changelog-version">
                     <span>Version 1.x</span>
                     <small>Original listening experience</small>
@@ -270,112 +282,106 @@
                 <div class="about-header">
                     <img src="icon-512.png" class="about-app-icon" alt="YouTune">
                     <div>
-                        <h2 style="color: var(--player-bg); font-size: 2rem; margin-bottom: 4px; letter-spacing: -0.5px;">
-                            YouTune Radio
-                        </h2>
-                        <p class="about-version" style="color: var(--text-grey); font-size: 0.9rem; margin-bottom: 0;">
-                            Version 2.0 Stable
-                        </p>
+                        <h2 class="about-title">YouTune Radio</h2>
+                        <p class="about-version">Version 2.1 Stable</p>
                     </div>
                 </div>
 
-                <div style="background: #f8fafc; padding: 15px; border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; margin-bottom: 30px;">
-                    <p style="margin-bottom: 6px; font-size: 1rem;">
-                        <strong style="color: var(--text-dark);">Developer:</strong> 
-                        <span style="color: var(--accent); font-weight: 700;">Exe Innovate</span>
+                <div class="about-dev-card">
+                    <p class="about-dev-row">
+                        <strong>Developer:</strong> 
+                        <span class="about-dev-name">Exe Innovate</span>
                     </p>
-                    <p style="margin: 0; font-size: 0.9rem; color: var(--text-grey);">
+                    <p class="about-copyright">
                         <strong>Copyright &copy; <span id="about-year"></span></strong>. All rights reserved.
                     </p>
                 </div>
 
-                <div style="color: #334155; line-height: 1.8; font-size: 0.95rem;">
-                    <p style="margin-bottom: 20px;">
+                <div class="about-body">
+                    <p>
                         YouTune Radio started as a personal project. I built it for myself because I genuinely enjoy listening to
                         radio — especially late at night, when everything is quieter and there’s always a station playing music,
                         talk shows, or something interesting in the background.
                     </p>
 
-                    <p style="margin-bottom: 20px;">
+                    <p>
                         The goal was simple: create a clean, distraction-free radio experience that highlights trending stations,
                         local stations from your country, and makes it easy to search globally by name. No accounts, no clutter —
                         just press play and enjoy what’s on.
                     </p>
 
-                    <p style="margin-bottom: 25px;">
+                    <p>
                         Whether you’re discovering new music, listening to late-night conversations, or just letting a station
                         run while you work or relax, YouTune Radio is designed to stay out of your way and let the radio speak for
                         itself.
                     </p>
                 </div>
 
-                <div style="background: #f1f5f9; border-radius: 12px; padding: 20px; margin-bottom: 30px;">
-                    <h3 style="font-size: 1rem; color: var(--text-dark); margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
-                        Notes & Acknowledgements
-                    </h3>
+                <div class="about-notes">
+                    <h3 class="about-notes-title">Notes & Acknowledgements</h3>
 
-                    <div style="margin-bottom: 15px;">
-                        <h4 style="font-size: 0.9rem; margin-bottom: 4px; color: var(--player-bg); display: flex; align-items: center; gap: 6px;">
-                            <span class="material-icons" style="font-size: 1rem;">wifi_tethering</span> Stream Reliability
+                    <div class="about-note">
+                        <h4>
+                            <span class="material-icons">wifi_tethering</span> Stream Reliability
                         </h4>
-                        <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; margin: 0;">
+                        <p>
                             Radio streams are hosted by the stations themselves. Occasionally, a stream might be offline, full, or geo-blocked. If a station doesn't play, it is likely a temporary issue on their end.
                         </p>
                     </div>
 
-                    <div style="margin-bottom: 15px;">
-                        <h4 style="font-size: 0.9rem; margin-bottom: 4px; color: var(--player-bg); display: flex; align-items: center; gap: 6px;">
-                            <span class="material-icons" style="font-size: 1rem;">album</span> Artwork & Info
+                    <div class="about-note">
+                        <h4>
+                            <span class="material-icons">album</span> Artwork & Info
                         </h4>
-                        <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; margin: 0;">
+                        <p>
                             Track titles and album art rely on real-time metadata sent by the broadcaster. If the station doesn't send this data, we cannot display it.
                         </p>
                     </div>
 
-                    <div>
-                        <h4 style="font-size: 0.9rem; margin-bottom: 4px; color: var(--player-bg); display: flex; align-items: center; gap: 6px;">
-                            <span class="material-icons" style="font-size: 1rem; color: var(--accent);">volunteer_activism</span> Community Powered
+                    <div class="about-note">
+                        <h4>
+                            <span class="material-icons accent-icon">volunteer_activism</span> Community Powered
                         </h4>
-                        <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; margin: 0;">
-                            This web app is powered by <a href="https://www.radio-browser.info/" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 700;">radio-browser.info</a>. 
-                            Special thanks to the creator, <strong>Alex Segler</strong>, and the community for maintaining this open database. If you can, please consider <a href="https://ko-fi.com/segleralex" target="_blank" style="color: var(--accent); text-decoration: underline;">supporting his work</a>.
+                        <p>
+                            This web app is powered by <a href="https://www.radio-browser.info/" target="_blank" rel="noopener">radio-browser.info</a>. 
+                            Special thanks to the creator, <strong>Alex Segler</strong>, and the community for maintaining this open database. If you can, please consider <a href="https://ko-fi.com/segleralex" target="_blank" rel="noopener" class="underline">supporting his work</a>.
                         </p>
                     </div>
                 </div>
 
-                <div style="margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap;">
-                    <a href="download/index.html" target="_blank" class="page-btn" style="text-decoration: none; color: var(--text-dark); border-color: #cbd5e1;">
-                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">download</span> 
+                <div class="about-links">
+                    <a href="download/index.html" target="_blank" class="page-btn about-link-btn">
+                        <span class="material-icons">download</span> 
                         Download Apps
                     </a>
 
-                    <a href="mailto:exeinn.info@gmail.com" class="page-btn" style="text-decoration: none; color: var(--text-dark); border-color: #cbd5e1;">
-                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">email</span> 
+                    <a href="mailto:exeinn.info@gmail.com" class="page-btn about-link-btn">
+                        <span class="material-icons">email</span> 
                         Contact Me
                     </a>
                     
-                    <a href="https://ko-fi.com/exeinn" target="_blank" rel="noopener" class="page-btn" style="text-decoration: none; color: var(--text-dark);">
-                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">coffee</span> 
+                    <a href="https://ko-fi.com/exeinn" target="_blank" rel="noopener" class="page-btn about-link-btn">
+                        <span class="material-icons">coffee</span> 
                         Buy Me a Coffee
                     </a>
 
-                    <a href="help/index.html" target="_blank" class="page-btn" style="text-decoration: none; color: var(--text-dark);">
-                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">help_outline</span> 
+                    <a href="help/index.html" target="_blank" class="page-btn about-link-btn">
+                        <span class="material-icons">help_outline</span> 
                         FAQ
                     </a>
 
-                    <a href="license/index.html" target="_blank" class="page-btn" style="text-decoration: none; color: var(--text-dark);">
-                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">description</span> 
+                    <a href="license/index.html" target="_blank" class="page-btn about-link-btn">
+                        <span class="material-icons">description</span> 
                         License
                     </a>
 
-                    <a href="feedback/index.html" target="_blank" class="page-btn" style="text-decoration: none; color: var(--text-dark);">
-                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">feedback</span> 
+                    <a href="feedback/index.html" target="_blank" class="page-btn about-link-btn">
+                        <span class="material-icons">feedback</span> 
                         Feedback
                     </a>
 
-                    <button type="button" class="page-btn" onclick="showWelcomeView(false)" style="text-decoration: none; color: var(--text-dark);">
-                        <span class="material-icons" style="font-size: 1.1rem; color: var(--text-grey); margin-right:6px;">new_releases</span>
+                    <button type="button" class="page-btn about-link-btn" onclick="showWelcomeView(false)">
+                        <span class="material-icons">new_releases</span>
                         What's New
                     </button>
                 </div>
@@ -486,6 +492,18 @@
                         </label>
                     </div>
 
+                    <!-- Keep Awake -->
+                    <div class="setting-group">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span class="setting-label">Keep Screen Awake While Playing</span>
+                            <label class="switch">
+                                <input type="checkbox" id="awake-toggle" onchange="toggleKeepAwake(this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <p class="setting-desc">Prevents your device from sleeping so playback continues all night. Keeps the screen on while music plays.</p>
+                    </div>
+
                     <!-- Actions -->
                     <div class="settings-actions">
                         <button onclick="resetSettings()" class="page-btn danger-btn">Reset Defaults</button>
@@ -511,6 +529,15 @@
         </div>
     </div>
 
+    <div class="player-status" id="player-status">
+        <span class="player-status-pill rec-pill hidden" id="status-rec" title="Recording in progress">
+            <span class="rec-dot"></span> REC
+        </span>
+        <span class="player-status-pill sleep-pill hidden" id="status-sleep" title="Sleep timer active">
+            <span class="material-icons">timer</span><span id="status-sleep-label">0m</span>
+        </span>
+    </div>
+
     <div class="player-right">
         <div class="volume-wrap">
             <button class="icon-btn" id="mute-btn" onclick="toggleMute()" title="Mute (m)">
@@ -521,10 +548,15 @@
 
         <button class="icon-btn play-circle" onclick="togglePlay()" title="Play/Pause">
             <span class="material-icons" id="play-icon">play_arrow</span>
+            <span class="eq-bars" aria-hidden="true"><span></span><span></span><span></span></span>
         </button>
 
         <button class="icon-btn" onclick="toggleFavoriteCurrent()" title="Favorite">
             <span class="material-icons" id="fav-icon">favorite_border</span>
+        </button>
+
+        <button class="icon-btn" id="theme-quick-btn" onclick="quickToggleTheme()" title="Toggle dark mode">
+            <span class="material-icons">dark_mode</span>
         </button>
     </div>
 </footer>

@@ -7,6 +7,14 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="icon" href="../icon-192.png" type="image/png">
+    <meta name="theme-color" content="#2c3e50">
+    <script>
+        if (localStorage.getItem('yt_theme') === 'dark') {
+            document.documentElement.classList.add('dark-mode');
+            var m = document.querySelector('meta[name="theme-color"]');
+            if (m) m.setAttribute('content', '#111827');
+        }
+    </script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
